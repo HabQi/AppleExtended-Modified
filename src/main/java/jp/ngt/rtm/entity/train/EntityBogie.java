@@ -14,6 +14,7 @@
 
 package jp.ngt.rtm.entity.train;
 
+import jp.apple.rail.srbxpatch.FreeEndpointRailResolver;
 import jp.ngt.ngtlib.math.NGTMath;
 import jp.ngt.ngtlib.math.PooledVec3;
 import jp.ngt.ngtlib.math.Vec3;
@@ -254,6 +255,11 @@ public final class EntityBogie extends Entity implements Lockable, jp.ngt.rtm.wo
     }
 
     private TileEntityLargeRailCore getRail(double px, double py, double pz) {
+        Object resolved = FreeEndpointRailResolver.resolve(this, px, py, pz);
+        if (resolved != null) {
+            return (TileEntityLargeRailCore) resolved;
+        }
+
         TileEntityLargeRailBase railObj = TileEntityLargeRailBase.getRailFromCoordinates(this.world, px, py + 2.0D, pz, 0);
         if (railObj != null) {
             TileEntityLargeRailCore coreObj = railObj.getRailCore();
