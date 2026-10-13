@@ -14,6 +14,7 @@
 
 package jp.ngt.rtm.entity.train;
 
+import jp.apple.ats.AtsAeTickHandler;
 import jp.ngt.ngtlib.io.NGTLog;
 import jp.ngt.ngtlib.math.NGTMath;
 import jp.ngt.ngtlib.math.PooledVec3;
@@ -247,6 +248,7 @@ public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> i
         } else {
             this.updateChunks();
             this.updateATS();
+            new AtsAeTickHandler().onAtsTick(this);
         }
     }
 
