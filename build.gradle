@@ -129,6 +129,10 @@ repositories {
         name = 'CurseMaven'
         url = 'https://cursemaven.com'
     }
+    maven {
+        name = 'KirtmunaMaven'
+        url = 'https://kirtmuna.github.io/kirtmuna-maven/'
+    }
 }
 
 configurations {
@@ -161,6 +165,7 @@ dependencies {
     compileOnly 'com.github.sarxos:webcam-capture:0.3.12'
     compileOnly "curse.maven:replaymod-775651:4798232"
     //compileOnly fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'jp.apple:ARIS-forge1.12.2:0.2.0'
 
     if (propertyBool('use_jetbrains_annotations')) {
         compileOnly 'org.jetbrains:annotations:26.1.0'

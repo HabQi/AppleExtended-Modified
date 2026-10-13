@@ -13,6 +13,10 @@ repositories {
     }
     maven { url = 'https://cleanroommc.com' }
     maven { url = 'https://minecraftforge.net' }
+    maven {
+        name = 'KirtmunaMaven'
+        url = 'https://kirtmuna.github.io/kirtmuna-maven/'
+    }
 }
 
 version = propertyString('mod_version')
@@ -83,6 +87,7 @@ if (atFile.exists()) {
 
 dependencies {
     //compileOnly fileTree(dir: "${rootProject.projectDir}/libs", include: ['*.jar'])
+    implementation 'jp.apple:ARIS-forge1.12.2:0.2.0'
     shade 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0'
     shade 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.2'
     shade 'com.anatawa12.sai:sai:0.0.2'
