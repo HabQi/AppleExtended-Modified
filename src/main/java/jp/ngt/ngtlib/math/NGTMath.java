@@ -273,6 +273,30 @@ public final class NGTMath {
         } else if (x >= 1.0D) {
             return 1.0D;
         }
+        double f0_min = (0.0D - 0.5D) * c;
+        double minVal = (f0_min / Math.sqrt(1.0D + f0_min * f0_min) + 1.0D) * 0.5D;
+
+        double f0_max = (1.0D - 0.5D) * c;
+        double maxVal = (f0_max / Math.sqrt(1.0D + f0_max * f0_max) + 1.0D) * 0.5D;
+
+        double f0 = (x - 0.5D) * c;
+        double f1 = (f0 / Math.sqrt(1.0D + f0 * f0));
+        double rawVal = (f1 + 1.0D) * 0.5D;
+
+        return (rawVal - minVal) / (maxVal - minVal);
+    }
+    /**
+     * 旧sigmoid
+     * @param x
+     * @param c 傾き(の2倍の値), 大きいほど原点でy=0に近づく
+     */
+    @Deprecated
+    public static double sigmoidLegacy(double x, double c) {
+        if (x <= 0.0D) {
+            return 0.0D;
+        } else if (x >= 1.0D) {
+            return 1.0D;
+        }
         //float f0 = (par1 - 0.5F) * 10.0F;
         //return 1.0F / (1.0F + (float)Math.pow(Math.E, -f0));//sqrtのほうが早い
 
