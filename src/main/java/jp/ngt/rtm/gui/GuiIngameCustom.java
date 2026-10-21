@@ -27,6 +27,7 @@ import jp.ngt.rtm.entity.train.parts.EntityArtillery;
 import jp.ngt.rtm.entity.vehicle.EntityVehicleBase;
 import jp.ngt.rtm.gui.camera.Camera;
 import jp.ngt.rtm.modelpack.modelset.ModelSetVehicleBase;
+import jp.ngt.rtm.modelpack.state.DataMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiScreen;
@@ -117,6 +118,79 @@ public class GuiIngameCustom extends GuiScreen {
         fontrenderer.drawStringWithShadow(String.valueOf(this.getBrake(train)), halfW - 178, this.height - 11, 0x00FF00);
         fontrenderer.drawStringWithShadow(String.valueOf(this.getWorldTime()), halfW + 130, this.height - 40, 0x00FF00);
         fontrenderer.drawStringWithShadow(this.getTime(), halfW + 130, this.height - 30, 0x00FF00);
+
+        this.renderAtsPanel(train, halfW);
+    }
+    /**
+     * ATS 表示盤
+     */
+    private void renderAtsPanel(EntityTrainBase train, int halfW) {
+        DataMap dm = train.getResourceState().getDataMap();
+        boolean disabled = !dm.contains("atsDisabled") || dm.getInt("atsDisabled") == 1;
+
+        FontRenderer fr = this.mc.fontRenderer;
+        int x = halfW - 208;
+        int y = this.getHeight() - 66;
+
+        if (disabled) {
+            String text = "[OFF]";
+            int w = fr.getStringWidth(text);
+
+            GL11.glDisable(GL11.GL_TEXTURE_2D);
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glColor4f(0.0F, 0.0F, 0.0F, 0.5F);
+            NGTTessellator t = NGTTessellator.instance;
+            t.startDrawingQuads();
+            t.addVertex(x - 2, y + 12, this.zLevel);
+            t.addVertex(x + w + 4, y + 12, this.zLevel);
+            t.addVertex(x + w + 4, y, this.zLevel);
+            t.addVertex(x - 2, y, this.zLevel);
+            t.draw();
+            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+
+            fr.drawStringWithShadow(text, x + 2, y + 2, 0xFF4040);
+            return;
+        }
+        int limit = dm.getInt("atsLimit");
+        int pattern = dm.getInt("atsPattern");
+        String onText = "[ON]";
+        String limitText = (limit >= 0) ? String.valueOf(limit) : "--";
+        String patternText = (pattern >= 0) ? "P" + pattern : "P--";
+
+        int wTotal = fr.getStringWidth(onText) + 4
+                + fr.getStringWidth(limitText) + 4
+                + fr.getStringWidth("/") + 4
+                + fr.getStringWidth(patternText);
+
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glColor4f(0.0F, 0.0F, 0.0F, 0.5F);
+        NGTTessellator t = NGTTessellator.instance;
+        t.startDrawingQuads();
+        t.addVertex(x - 2, y + 12, this.zLevel);
+        t.addVertex(x + wTotal + 6, y + 12, this.zLevel);
+        t.addVertex(x + wTotal + 6, y, this.zLevel);
+        t.addVertex(x - 2, y, this.zLevel);
+        t.draw();
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+
+        int cursor = x + 2;
+        fr.drawStringWithShadow(onText, cursor, y + 2, 0x40FF40);
+        cursor += fr.getStringWidth(onText) + 4;
+
+        int limitColor = (limit >= 0) ? 0x40FF40 : 0x808080;
+        fr.drawStringWithShadow(limitText, cursor, y + 2, limitColor);
+        cursor += fr.getStringWidth(limitText) + 4;
+
+        fr.drawStringWithShadow("/", cursor, y + 2, 0x808080);
+        cursor += fr.getStringWidth("/") + 4;
+
+        int patternColor = (pattern >= 0) ? 0xFFA040 : 0x808080;
+        fr.drawStringWithShadow(patternText, cursor, y + 2, patternColor);
     }
 
     private void renderTimeTable(EntityTrainBase train) {
