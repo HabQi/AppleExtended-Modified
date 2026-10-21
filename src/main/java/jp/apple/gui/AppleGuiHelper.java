@@ -15,6 +15,7 @@
 package jp.apple.gui;
 
 import jp.ngt.ngtlib.block.TileEntityPlaceable;
+import net.minecraft.client.Minecraft;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -31,8 +32,8 @@ public class AppleGuiHelper {
         private static void open(TileEntity te) {
             if (te instanceof TileEntityPlaceable) {
 
-                net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
-                        new jp.apple.gui.GuiAppleChangeOffset((TileEntityPlaceable) te)
+                Minecraft.getMinecraft().displayGuiScreen(
+                        new GuiAppleChangeOffset((TileEntityPlaceable) te)
                 );
             }
         }
