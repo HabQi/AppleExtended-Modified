@@ -24,6 +24,7 @@ import jp.ngt.rtm.entity.train.util.TrainState.TrainStateType;
 import jp.ngt.rtm.entity.vehicle.EntityVehicleBase;
 import jp.ngt.rtm.modelpack.cfg.VehicleBaseConfig;
 import jp.ngt.rtm.modelpack.modelset.ModelSetVehicleBase;
+import jp.ngt.rtm.modelpack.state.DataMap;
 import jp.ngt.rtm.network.PacketNotice;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
@@ -67,6 +68,7 @@ public class GuiVehicleControlPanel extends InventoryEffectRenderer {
     private GuiButton buttonChunkLoader;
     private GuiButton buttonDestination;
     private GuiButton buttonAnnouncement;
+    private GuiButton buttonAts;
     private GuiButton[] buttonDirection = new GuiButton[3];
     private GuiButtonDoor[] buttonDoor = new GuiButtonDoor[2];
 
@@ -144,22 +146,28 @@ public class GuiVehicleControlPanel extends InventoryEffectRenderer {
                 }
             }
 
-            this.buttonChunkLoader = new GuiButton(127, this.guiLeft + 28, this.guiTop + 52, 120, 20, this.getFormattedText(TrainStateType.ChunkLoader, this.vehicle.getVehicleState(TrainStateType.ChunkLoader)));
+            this.buttonChunkLoader = new GuiButton(127, this.guiLeft + 28, this.guiTop + 50, 120, 20, this.getFormattedText(TrainStateType.ChunkLoader, this.vehicle.getVehicleState(TrainStateType.ChunkLoader)));
             this.buttonList.add(this.buttonChunkLoader);
-            this.buttonList.add(new GuiButton(110, this.guiLeft + 4, this.guiTop + 52, 20, 20, "<"));
-            this.buttonList.add(new GuiButton(111, this.guiLeft + 152, this.guiTop + 52, 20, 20, ">"));
+            this.buttonList.add(new GuiButton(110, this.guiLeft + 4, this.guiTop + 50, 20, 20, "<"));
+            this.buttonList.add(new GuiButton(111, this.guiLeft + 152, this.guiTop + 50, 20, 20, ">"));
 
             if (this.modelset.getConfig().rollsignNames != null) {
-                this.buttonDestination = new GuiButton(128, this.guiLeft + 28, this.guiTop + 76, 120, 20, this.getFormattedText(TrainStateType.Destination, this.vehicle.getVehicleState(TrainStateType.Destination)));
+                this.buttonDestination = new GuiButton(128, this.guiLeft + 28, this.guiTop + 74, 120, 20, this.getFormattedText(TrainStateType.Destination, this.vehicle.getVehicleState(TrainStateType.Destination)));
                 this.buttonList.add(this.buttonDestination);
-                this.buttonList.add(new GuiButton(112, this.guiLeft + 4, this.guiTop + 76, 20, 20, "<"));
-                this.buttonList.add(new GuiButton(113, this.guiLeft + 152, this.guiTop + 76, 20, 20, ">"));
+                this.buttonList.add(new GuiButton(112, this.guiLeft + 4, this.guiTop + 74, 20, 20, "<"));
+                this.buttonList.add(new GuiButton(113, this.guiLeft + 152, this.guiTop + 74, 20, 20, ">"));
             }
 
-            this.buttonAnnouncement = new GuiButton(129, this.guiLeft + 28, this.guiTop + 100, 120, 20, this.getFormattedText(TrainStateType.Announcement, this.vehicle.getVehicleState(TrainStateType.Announcement)));
+            this.buttonAnnouncement = new GuiButton(129, this.guiLeft + 28, this.guiTop + 98, 120, 20, this.getFormattedText(TrainStateType.Announcement, this.vehicle.getVehicleState(TrainStateType.Announcement)));
             this.buttonList.add(this.buttonAnnouncement);
-            this.buttonList.add(new GuiButton(114, this.guiLeft + 4, this.guiTop + 100, 20, 20, "<"));
-            this.buttonList.add(new GuiButton(115, this.guiLeft + 152, this.guiTop + 100, 20, 20, ">"));
+            this.buttonList.add(new GuiButton(114, this.guiLeft + 4, this.guiTop + 98, 20, 20, "<"));
+            this.buttonList.add(new GuiButton(115, this.guiLeft + 152, this.guiTop + 98, 20, 20, ">"));
+            // ATS ON/OFF
+            DataMap dm = this.vehicle.getResourceState().getDataMap();
+            boolean atsDisabled = !dm.contains("atsDisabled") || dm.getInt("atsDisabled") == 1;
+            this.buttonAts = new GuiButton(130, this.guiLeft + 4, this.guiTop + 120, 80, 20,
+                    atsDisabled ? "ATS: OFF" : "ATS: ON");
+            this.buttonList.add(this.buttonAts);
         } else if (tab == TabTrainControlPanel.TAB_Function) {
             containerTrain.inventorySlots = new ArrayList();
             for (int i = 0; i < 9; ++i) {
@@ -675,6 +683,18 @@ public class GuiVehicleControlPanel extends InventoryEffectRenderer {
                     button.displayString = this.getFormattedText(type, (byte) i2);
                 }
             }
+        }
+        if (button.id == 130) {
+            DataMap dataMap = this.vehicle.getResourceState().getDataMap();
+            boolean currentlyDisabled = !dataMap.contains("atsDisabled")
+                    || dataMap.getInt("atsDisabled") == 1;
+            boolean nowDisabled = !currentlyDisabled;
+            int value = nowDisabled ? 1 : 0;
+            dataMap.setInt("atsDisabled", value, 2);
+            dataMap.setInt("atsDisabled", value, 1);
+            this.vehicle.updateResourceState();
+            button.displayString = nowDisabled ? "ATS: OFF" : "ATS: ON";
+            return;
         }
         if (button.id == 300 || button.id == 301) {
             ((GuiButtonDoor) button).opened ^= true;
