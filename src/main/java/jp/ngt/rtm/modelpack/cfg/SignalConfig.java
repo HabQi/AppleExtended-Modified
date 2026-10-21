@@ -75,15 +75,19 @@ public class SignalConfig extends ModelConfig {
         this.modelPartsFixture.initParts();
         this.modelPartsBody.initParts();
 
-        if (this.maxSignalLevel == 0 && this.lights != null) {
-            int i = 0;
-            LightParts[] parts = ModelSetSignal.parseLightParts(this.lights);
-            for (LightParts light : parts) {
-                if (light.signalLevel > i) {
-                    i = light.signalLevel;
+        if (this.maxSignalLevel == 0) {
+            if (this.lights != null) {
+                int i = 0;
+                LightParts[] parts = ModelSetSignal.parseLightParts(this.lights);
+                for (LightParts light : parts) {
+                    if (light.signalLevel > i) {
+                        i = light.signalLevel;
+                    }
                 }
+                this.maxSignalLevel = i;
+            } else {
+                this.maxSignalLevel = 6;
             }
-            this.maxSignalLevel = i;
         }
     }
 
