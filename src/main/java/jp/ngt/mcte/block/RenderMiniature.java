@@ -92,6 +92,8 @@ public final class RenderMiniature extends TileEntitySpecialRenderer<TileEntityM
 
         GL11.glPushMatrix();
 
+        GL11.glRotatef(tile.getRotationX(), 1.0F, 0.0F, 0.0F);
+        GL11.glRotatef(tile.getRotationZ(), 0.0F, 0.0F, 1.0F);
         setupMotionAndScale(tile.getMBState(), tile.getRotation(), tile.scale, tile.offsetX, tile.offsetY, tile.offsetZ, mPass);
 
         if (mPass > 0) {

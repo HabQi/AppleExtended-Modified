@@ -248,6 +248,61 @@ public class TileEntityMiniature extends TileEntityPlaceable implements ITickabl
         super.setRotation(par1, synch);
         this.updateAABB();
     }
+    
+    @Override
+    public float getOffsetX() {
+        return this.offsetX;
+    }
+
+    @Override
+    public float getOffsetY() {
+        return this.offsetY;
+    }
+
+    @Override
+    public float getOffsetZ() {
+        return this.offsetZ;
+    }
+
+    @Override
+    public float getScale() {
+        return this.scale;
+    }
+
+    @Override
+    public void setOffset(float x, float y, float z, boolean sync) {
+        this.offsetX = x;
+        this.offsetY = y;
+        this.offsetZ = z;
+        if (sync) {
+            this.sendPacket();
+            this.markDirty();
+        }
+    }
+
+    @Override
+    public void setScale(float s, boolean sync) {
+        if (s > 0.0F) {
+            this.scale = s;
+        }
+        if (sync) {
+            this.sendPacket();
+            this.markDirty();
+        }
+    }
+
+    @Override
+    public void setRotationXYZS(float x, float y, float z, float s, boolean sync) {
+        super.setRotationXYZS(x, y, z, s, false);
+        if (s > 0.0F) {
+            this.scale = s;
+        }
+        this.updateAABB();
+        if (sync) {
+            this.sendPacket();
+            this.markDirty();
+        }
+    }
 
     /**
      * 当たり判定再生成
@@ -313,7 +368,8 @@ public class TileEntityMiniature extends TileEntityPlaceable implements ITickabl
         }
 
         //回転してる時はoffsetを単純に計算出来ない
-        if (this.offsetX != 0.0F || this.offsetY != 0.0F || this.offsetZ != 0.0F) {
+        if (this.offsetX != 0.0F || this.offsetY != 0.0F || this.offsetZ != 0.0F
+                || this.getRotationX() != 0.0F || this.getRotationZ() != 0.0F) {
             return INFINITE_EXTENT_AABB;
         }
 

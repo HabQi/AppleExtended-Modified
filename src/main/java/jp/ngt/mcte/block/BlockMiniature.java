@@ -14,6 +14,7 @@
 
 package jp.ngt.mcte.block;
 
+import jp.apple.gui.AppleGuiHelper;
 import jp.ngt.mcte.MCTE;
 import jp.ngt.mcte.item.ItemMiniature;
 import jp.ngt.mcte.item.ItemMiniature.MiniatureMode;
@@ -21,6 +22,7 @@ import jp.ngt.ngtlib.block.BlockArgHolder;
 import jp.ngt.ngtlib.block.BlockContainerCustom;
 import jp.ngt.ngtlib.block.NGTObject;
 import jp.ngt.ngtlib.math.NGTMath;
+import jp.ngt.ngtlib.util.NGTUtil;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
@@ -62,6 +64,13 @@ public class BlockMiniature extends BlockContainerCustom {
 
     @Override
     public boolean onBlockActivated(BlockArgHolder holder, float hitX, float hitY, float hitZ) {
+        if (NGTUtil.isEquippedItem(holder.getPlayer(), jp.ngt.rtm.RTMItem.crowbar)) {
+            if (holder.getWorld().isRemote) {
+                AppleGuiHelper.openOffsetGui(
+                        this.getMiniatureTileEntity(holder.getWorld(), holder.getBlockPos()));
+            }
+            return true;
+        }
         ItemStack stack = holder.getPlayer().inventory.getCurrentItem();
         if (stack == null || stack.getItem() != MCTE.itemMiniature) {
             if (!holder.getWorld().isRemote) {
