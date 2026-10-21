@@ -35,8 +35,9 @@ public class GuiAppleChangeOffset extends GuiScreenCustom {
     public void initGui() {
         super.initGui();
         this.buttonList.clear();
-        this.buttonList.add(new GuiButton(0, this.width / 2 - 105, this.height - 28, 100, 20, I18n.format("gui.done")));
-        this.buttonList.add(new GuiButton(1, this.width / 2 + 5, this.height - 28, 100, 20, I18n.format("gui.cancel")));
+        this.buttonList.add(new GuiButton(0, this.width / 2 - 158, this.height - 28, 100, 20, I18n.format("gui.done")));
+        this.buttonList.add(new GuiButton(2, this.width / 2 - 50, this.height - 28, 100, 20, I18n.format("gui.apply")));
+        this.buttonList.add(new GuiButton(1, this.width / 2 + 58, this.height - 28, 100, 20, I18n.format("gui.cancel")));
 
         int x = this.width - 70;
 
@@ -68,11 +69,13 @@ public class GuiAppleChangeOffset extends GuiScreenCustom {
 
     @Override
     protected void actionPerformed(GuiButton button) {
-        if (button.id == 0) {
+        if (button.id == 0) { // Done
             this.sendPacket();
             this.mc.displayGuiScreen(null);
-        } else if (button.id == 1) {
+        } else if (button.id == 1) { // Cancel
             this.mc.displayGuiScreen(null);
+        } else if (button.id == 2) { // Apply
+            this.sendPacket();
         }
     }
 
