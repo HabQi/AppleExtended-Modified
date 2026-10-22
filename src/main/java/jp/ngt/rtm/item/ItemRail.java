@@ -50,6 +50,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class ItemRail extends ItemWithModel {
@@ -258,6 +259,9 @@ public class ItemRail extends ItemWithModel {
             }
             ResourceStateRail state = this.getModelState(stack);
             boolean isCreative = player.capabilities.isCreativeMode;
+            if (list.size() == 2 && list.get(0).blockY == list.get(1).blockY) {
+                Collections.reverse(list);
+            }
             return BlockMarker.createRail(world, pos.getX(), pos.getY(), pos.getZ(), list, state, true, isCreative);
         }
     }
