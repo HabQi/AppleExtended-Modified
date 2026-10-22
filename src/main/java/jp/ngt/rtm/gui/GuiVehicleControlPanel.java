@@ -561,7 +561,7 @@ public class GuiVehicleControlPanel extends InventoryEffectRenderer {
             String[] names = this.modelset.getConfig().rollsignNames;
             if (names != null) {
                 int listHeight = Math.min(names.length * 10 + 10, this.height - button.y - button.height - 5);
-                this.mc.displayGuiScreen(new jp.apple.gui.GuiAppleListSelector(
+                this.mc.displayGuiScreen(new jp.apple.appleextended.gui.GuiAppleListSelector(
                         this, button.x, button.y + button.height, button.width, listHeight,
                         () -> (int) this.vehicle.getVehicleState(TrainStateType.Destination),
                         java.util.Arrays.asList(names),
@@ -583,7 +583,7 @@ public class GuiVehicleControlPanel extends InventoryEffectRenderer {
                 java.util.List<String> announceNames = new java.util.ArrayList<>();
                 for (String[] s : announce) announceNames.add(s[0]);
                 int listHeight = Math.min(announceNames.size() * 10 + 10, this.height - button.y - button.height - 5);
-                this.mc.displayGuiScreen(new jp.apple.gui.GuiAppleListSelector(
+                this.mc.displayGuiScreen(new jp.apple.appleextended.gui.GuiAppleListSelector(
                         this, button.x, button.y + button.height, button.width, listHeight,
                         () -> (int) this.vehicle.getVehicleState(TrainStateType.Announcement),
                         announceNames,
@@ -604,7 +604,7 @@ public class GuiVehicleControlPanel extends InventoryEffectRenderer {
             String[][] allButtons = this.getCustomButtons();
             if (index < allButtons.length) {
                 int listHeight = Math.min(allButtons[index].length * 10 + 10, this.height - button.y - button.height - 5);
-                this.mc.displayGuiScreen(new jp.apple.gui.GuiAppleListSelector(
+                this.mc.displayGuiScreen(new jp.apple.appleextended.gui.GuiAppleListSelector(
                         this, button.x, button.y + button.height, button.width, listHeight,
                         () -> this.vehicle.getResourceState().getDataMap().getInt("Button" + index),
                         java.util.Arrays.asList(allButtons[index]),
@@ -727,7 +727,7 @@ public class GuiVehicleControlPanel extends InventoryEffectRenderer {
             String[][] allButtons = this.getCustomButtons();
             if (index < allButtons.length) {
                 int listHeight = Math.min(allButtons[index].length * 10 + 10, this.height - button.y - button.height - 5);
-                this.mc.displayGuiScreen(new jp.apple.gui.GuiAppleListSelector(
+                this.mc.displayGuiScreen(new jp.apple.appleextended.gui.GuiAppleListSelector(
                         this, button.x, button.y + button.height, button.width, listHeight,
                         () -> this.vehicle.getResourceState().getDataMap().getInt("Button" + index),
                         java.util.Arrays.asList(allButtons[index]),

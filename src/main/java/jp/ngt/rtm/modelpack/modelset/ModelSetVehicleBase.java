@@ -26,7 +26,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.script.ScriptEngine;
 
-import jp.apple.script.ScriptLoader;
+import jp.apple.appleextended.script.ScriptLoader;
 
 public abstract class ModelSetVehicleBase<T extends VehicleBaseConfig> extends ModelSetBase<T> {
     @SideOnly(Side.CLIENT)

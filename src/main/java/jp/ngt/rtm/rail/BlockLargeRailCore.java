@@ -14,7 +14,7 @@
 
 package jp.ngt.rtm.rail;
 
-import jp.apple.rail.TileEntityLargeRailSectionCore;
+import jp.apple.appleextended.rail.TileEntityLargeRailSectionCore;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 

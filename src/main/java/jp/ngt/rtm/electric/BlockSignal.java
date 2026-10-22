@@ -45,7 +45,7 @@ public class BlockSignal extends BlockContainerCustomWithMeta implements IBlockC
             if (holder.getPlayer().inventory.getCurrentItem().getItem() == jp.ngt.rtm.RTMItem.crowbar) {
                 TileEntity te = holder.getWorld().getTileEntity(holder.getBlockPos());
                 if (te instanceof TileEntityPlaceable) {
-                    jp.apple.gui.AppleGuiHelper.openOffsetGui(te);
+                    jp.apple.appleextended.gui.AppleGuiHelper.openOffsetGui(te);
                 }
                 return true;
             }

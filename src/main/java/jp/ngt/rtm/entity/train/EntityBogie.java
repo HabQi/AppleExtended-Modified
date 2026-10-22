@@ -14,7 +14,7 @@
 
 package jp.ngt.rtm.entity.train;
 
-import jp.apple.rail.srbxpatch.FreeEndpointRailResolver;
+import jp.apple.appleextended.rail.srbxpatch.FreeEndpointRailResolver;
 import jp.ngt.ngtlib.math.NGTMath;
 import jp.ngt.ngtlib.math.PooledVec3;
 import jp.ngt.ngtlib.math.Vec3;

@@ -108,7 +108,7 @@ public final class RTMKeyHandlerClient {
                 } else {
                     this.notchTimer++;
 
-                    if (this.notchTimer > jp.apple.config.AppleConfig.notchRepeatInterval) {
+                    if (this.notchTimer > jp.apple.appleextended.config.AppleConfig.notchRepeatInterval) {
                         if (isLeftDown) train.syncNotch(-1);
                         else train.syncNotch(1);
 

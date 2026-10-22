@@ -34,7 +34,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.util.List;
 
-import jp.apple.render.item.CustomIconItemStackRenderer;
 import jp.ngt.rtm.modelpack.cfg.ModelConfig;
 import net.minecraft.util.ResourceLocation;
 
@@ -43,7 +42,7 @@ public abstract class ItemWithModel<T extends ResourceSet> extends ItemCustom {
         super();
         this.setHasSubtypes(true);
         if (net.minecraftforge.fml.relauncher.FMLLaunchHandler.side() == Side.CLIENT) {
-            jp.apple.render.item.ClientIconSetup.apply(this);
+            jp.apple.appleextended.render.item.ClientIconSetup.apply(this);
         }
     }
 

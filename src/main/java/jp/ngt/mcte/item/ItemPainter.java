@@ -14,7 +14,7 @@
 
 package jp.ngt.mcte.item;
 
-import jp.apple.log.AppleLogger;
+import jp.apple.appleextended.log.AppleLogger;
 import jp.ngt.ngtlib.block.BlockUtil;
 import jp.ngt.ngtlib.io.NGTLog;
 import jp.ngt.ngtlib.item.ItemArgHolderBase.ItemArgHolder;

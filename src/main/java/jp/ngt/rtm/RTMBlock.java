@@ -14,7 +14,7 @@
 
 package jp.ngt.rtm;
 
-import jp.apple.rail.TileEntityLargeRailSectionCore;
+import jp.apple.appleextended.rail.TileEntityLargeRailSectionCore;
 import jp.ngt.ngtlib.block.BlockUtil;
 import jp.ngt.ngtlib.item.ItemBlockCustom;
 import jp.ngt.ngtlib.item.ItemColoredBlock;

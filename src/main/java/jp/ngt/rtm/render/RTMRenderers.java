@@ -22,7 +22,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.script.ScriptEngine;
 
-import jp.apple.script.ScriptLoader;
+import jp.apple.appleextended.script.ScriptLoader;
 
 @SideOnly(Side.CLIENT)
 public final class RTMRenderers {

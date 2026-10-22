@@ -41,7 +41,7 @@ import javax.script.ScriptEngine;
 import java.net.URLClassLoader;
 import java.util.*;
 
-import jp.apple.script.api.gif.ScriptGifRenderer;
+import jp.apple.appleextended.script.api.gif.ScriptGifRenderer;
 
 @SideOnly(Side.CLIENT)
 public abstract class PartsRenderer<T, MS extends ModelSetBase> {

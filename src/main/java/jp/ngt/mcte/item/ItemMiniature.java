@@ -14,7 +14,7 @@
 
 package jp.ngt.mcte.item;
 
-import jp.apple.log.AppleLogger;
+import jp.apple.appleextended.log.AppleLogger;
 import jp.ngt.mcte.MCTE;
 import jp.ngt.mcte.block.MiniatureBlockState;
 import jp.ngt.mcte.block.TileEntityMiniature;

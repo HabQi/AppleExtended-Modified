@@ -14,7 +14,7 @@
 
 package jp.ngt.rtm;
 
-import jp.apple.rail.TileEntityLargeRailSectionCore;
+import jp.apple.appleextended.rail.TileEntityLargeRailSectionCore;
 import jp.ngt.ngtlib.util.NGTRegHandler;
 import jp.ngt.rtm.rail.*;
 import net.minecraft.block.Block;

@@ -15,7 +15,7 @@
 package jp.ngt.mcte.network;
 
 import io.netty.buffer.ByteBuf;
-import jp.apple.log.AppleLogger;
+import jp.apple.appleextended.log.AppleLogger;
 import jp.ngt.ngtlib.block.BlockUtil;
 import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayer;

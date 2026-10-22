@@ -41,9 +41,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 public abstract class TileEntityLargeRailCore extends TileEntityLargeRailBase implements IResourceSelector {
     public boolean breaking;
@@ -76,7 +74,7 @@ public abstract class TileEntityLargeRailCore extends TileEntityLargeRailBase im
 
     @Override
     public void readFromNBT(NBTTagCompound nbt) {
-        jp.apple.replaymod.compat.ReplaySyncManager.patchRailMetadata(this, nbt);
+        jp.apple.appleextended.compat.ReplaySyncManager.patchRailMetadata(this, nbt);
 
         super.readFromNBT(nbt);
         this.readRailStates(nbt);

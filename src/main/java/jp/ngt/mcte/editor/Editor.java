@@ -14,7 +14,7 @@
 
 package jp.ngt.mcte.editor;
 
-import jp.apple.log.AppleLogger;
+import jp.apple.appleextended.log.AppleLogger;
 import jp.ngt.mcte.MCTE;
 import jp.ngt.mcte.block.BlockMinesweeper.MinesweeperType;
 import jp.ngt.mcte.block.TileEntityMinesweeper;

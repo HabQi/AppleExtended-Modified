@@ -47,7 +47,7 @@ public class TileEntitySignal extends TileEntityPlaceable implements IProvideEle
 
     @Override
     public void readFromNBT(NBTTagCompound nbt) {
-        jp.apple.replaymod.compat.ReplaySyncManager.patchResourceSelectorMetadata(this, nbt);
+        jp.apple.appleextended.compat.ReplaySyncManager.patchResourceSelectorMetadata(this, nbt);
         super.readFromNBT(nbt);
         this.state.readFromNBT(nbt.getCompoundTag("State"));
         this.blockDirection = nbt.getInteger("blockDir");
@@ -85,7 +85,7 @@ public class TileEntitySignal extends TileEntityPlaceable implements IProvideEle
             this.tick = 0;
         }
         if (this.world.isRemote) {
-            jp.apple.replaymod.compat.ReplaySyncManager.checkModelSync(this);
+            jp.apple.appleextended.compat.ReplaySyncManager.checkModelSync(this);
         }
         if (!this.getWorld().isRemote) {
             this.executer.execScript(this);

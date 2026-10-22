@@ -44,7 +44,7 @@ public class RenderLargeRail extends TileEntitySpecialRenderer<TileEntityLargeRa
     }
 
     private void renderTileEntityLargeRail(TileEntityLargeRailCore rail, double par2, double par4, double par6, float par8) {
-        jp.apple.replaymod.compat.ReplaySyncManager.checkRailModel(rail);
+        jp.apple.appleextended.compat.ReplaySyncManager.checkRailModel(rail);
         if (!rail.isLoaded()) {
             return;
         }

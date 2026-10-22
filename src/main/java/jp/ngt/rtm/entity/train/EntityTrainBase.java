@@ -14,7 +14,7 @@
 
 package jp.ngt.rtm.entity.train;
 
-import jp.apple.ats.AtsAeTickHandler;
+import jp.apple.appleextended.ats.AtsAeTickHandler;
 import jp.ngt.ngtlib.io.NGTLog;
 import jp.ngt.ngtlib.math.NGTMath;
 import jp.ngt.ngtlib.math.PooledVec3;
@@ -117,7 +117,7 @@ public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> i
         this.getDataManager().register(TRAIN_SPEED, 0.0f);
         this.getDataManager().register(CAB_DIRECTION, false);
 
-        jp.apple.replaymod.compat.ReplaySyncManager.registerData(this);
+        jp.apple.appleextended.compat.ReplaySyncManager.registerData(this);
     }
 
     @Override
@@ -151,7 +151,7 @@ public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> i
 
     @Override
     protected void readEntityFromNBT(NBTTagCompound nbt) {
-        jp.apple.replaymod.compat.ReplaySyncManager.patchMetadata(this, nbt);
+        jp.apple.appleextended.compat.ReplaySyncManager.patchMetadata(this, nbt);
         super.readEntityFromNBT(nbt);
 
         if (nbt.hasKey("FormationEntry", 10)) {
@@ -231,7 +231,7 @@ public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> i
 
     @Override
     public void onVehicleUpdate() {
-        jp.apple.replaymod.compat.ReplaySyncManager.syncModel(this, false);
+        jp.apple.appleextended.compat.ReplaySyncManager.syncModel(this, false);
 
         this.updateSpeed();
 
@@ -241,7 +241,7 @@ public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> i
 
         super.onVehicleUpdate();
 
-        jp.apple.train.TrainPlatformHandler.updateStandingEntities(this);
+        jp.apple.appleextended.train.TrainPlatformHandler.updateStandingEntities(this);
 
         if (this.world.isRemote) {
             this.spawnSmoke();
@@ -760,7 +760,7 @@ public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> i
 
     @Override
     public void updateResourceState() {
-        jp.apple.replaymod.compat.ReplaySyncManager.syncModel(this, true);
+        jp.apple.appleextended.compat.ReplaySyncManager.syncModel(this, true);
 
         super.updateResourceState();
         this.updateTrainSize();

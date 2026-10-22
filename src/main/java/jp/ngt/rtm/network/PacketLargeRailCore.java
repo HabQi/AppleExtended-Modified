@@ -15,7 +15,7 @@
 package jp.ngt.rtm.network;
 
 import io.netty.buffer.ByteBuf;
-import jp.apple.rail.TileEntityLargeRailSectionCore;
+import jp.apple.appleextended.rail.TileEntityLargeRailSectionCore;
 import jp.ngt.ngtlib.event.TickProcessEntry;
 import jp.ngt.ngtlib.event.TickProcessQueue;
 import jp.ngt.ngtlib.network.PacketCustom;

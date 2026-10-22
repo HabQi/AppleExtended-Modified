@@ -50,7 +50,7 @@ public abstract class TileEntityMachineBase extends TileEntityPlaceable implemen
 
     @Override
     public void readFromNBT(NBTTagCompound nbt) {
-        jp.apple.replaymod.compat.ReplaySyncManager.patchResourceSelectorMetadata(this, nbt);
+        jp.apple.appleextended.compat.ReplaySyncManager.patchResourceSelectorMetadata(this, nbt);
         super.readFromNBT(nbt);
         this.state.readFromNBT(nbt.getCompoundTag("State"));
         this.pitch = nbt.getFloat("Pitch");
@@ -72,7 +72,7 @@ public abstract class TileEntityMachineBase extends TileEntityPlaceable implemen
             this.tick = 0;
         }
         if (this.world.isRemote) {
-            jp.apple.replaymod.compat.ReplaySyncManager.checkModelSync(this);
+            jp.apple.appleextended.compat.ReplaySyncManager.checkModelSync(this);
         }
         if (!this.getWorld().isRemote) {
             this.executer.execScript(this);

@@ -14,7 +14,7 @@
 
 package jp.ngt.rtm.entity.train.parts;
 
-import jp.apple.replaymod.compat.ReplaySyncManager;
+import jp.apple.appleextended.compat.ReplaySyncManager;
 import jp.ngt.ngtlib.network.PacketNBT;
 import jp.ngt.rtm.RTMCore;
 import jp.ngt.rtm.entity.vehicle.EntityVehicleBase;

@@ -14,7 +14,7 @@
 
 package jp.ngt.mcte.block;
 
-import jp.apple.gui.AppleGuiHelper;
+import jp.apple.appleextended.gui.AppleGuiHelper;
 import jp.ngt.mcte.MCTE;
 import jp.ngt.mcte.item.ItemMiniature;
 import jp.ngt.mcte.item.ItemMiniature.MiniatureMode;
