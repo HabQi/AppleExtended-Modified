@@ -14,6 +14,8 @@
 
 package jp.ngt.rtm.sound;
 
+import jp.apple.config.AppleConfig;
+import jp.apple.sound.SoundRangeHelper;
 import jp.ngt.ngtlib.sound.MovingSoundCustom;
 import jp.ngt.rtm.RTMCore;
 import net.minecraft.tileentity.TileEntity;
@@ -24,6 +26,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 public class MovingSoundTileEntity extends MovingSoundCustom {
     protected final TileEntity entity;
     private float baseVolume = -1.0F;
+    private boolean started = false;
 
     protected MovingSoundTileEntity(TileEntity par1Entity, String par2Sound, boolean par3Repeat) {
         super(par2Sound, par3Repeat);
@@ -45,11 +48,16 @@ public class MovingSoundTileEntity extends MovingSoundCustom {
         }
 
         if (this.baseVolume >= 0.0F) {
-            float adjusted = jp.apple.sound.SoundRangeHelper.calcVolume(
-                    this.baseVolume,
-                    jp.apple.config.AppleConfig.crossingSoundRange,
-                    this.xPosF, this.yPosF, this.zPosF);
-            this.volume = adjusted;
+            if (!this.started) {
+                this.started = true;
+                this.volume = this.baseVolume;
+            } else {
+                float adjusted = SoundRangeHelper.calcVolume(
+                        this.baseVolume,
+                        AppleConfig.crossingSoundRange,
+                        this.xPosF, this.yPosF, this.zPosF);
+                this.volume = adjusted;
+            }
         }
     }
 

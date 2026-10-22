@@ -88,6 +88,24 @@ public class TileEntityCrossingGate extends TileEntityMachineBase {
             this.soundPlayer = SoundPlayer.create();
         }
     }
+    
+    @Override
+    public void onChunkUnload() {
+        super.onChunkUnload();
+        this.stopSoundOnClient();
+    }
+
+    @Override
+    public void invalidate() {
+        super.invalidate();
+        this.stopSoundOnClient();
+    }
+
+    private void stopSoundOnClient() {
+        if (this.world != null && this.world.isRemote) {
+            this.soundPlayer.stopSound();
+        }
+    }
 
     @Override
     @SideOnly(Side.CLIENT)
