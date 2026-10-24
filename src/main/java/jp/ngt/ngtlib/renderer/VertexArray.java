@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.ngtlib.renderer;
@@ -28,10 +26,10 @@ import java.util.Arrays;
 public final class VertexArray extends GLObject implements IRenderer {
     private static final int NATIVE_BUFFER_SIZE = 0x600000;//0x200000=2097152//速度に影響なし?
 
-    private final ByteBuffer byteBuffer = GLAllocation.createDirectByteBuffer(NATIVE_BUFFER_SIZE * 4);
-    private final IntBuffer intBuffer = this.byteBuffer.asIntBuffer();
-    private final FloatBuffer floatBuffer = this.byteBuffer.asFloatBuffer();
-    private final ShortBuffer shortBuffer = this.byteBuffer.asShortBuffer();
+    private ByteBuffer byteBuffer = GLAllocation.createDirectByteBuffer(NATIVE_BUFFER_SIZE * 4);
+    private IntBuffer intBuffer = this.byteBuffer.asIntBuffer();
+    private FloatBuffer floatBuffer = this.byteBuffer.asFloatBuffer();
+    private ShortBuffer shortBuffer = this.byteBuffer.asShortBuffer();
     private int[] rawBuffer;
     /**
      * The index into the raw buffer to be used for the next data.
@@ -269,5 +267,18 @@ public final class VertexArray extends GLObject implements IRenderer {
         int b1 = (int) (par2 * 127.0F);
         int b2 = (int) (par3 * 127.0F);
         this.normal = b0 & 0xFF | (b1 & 0xFF) << 8 | (b2 & 0xFF) << 16;
+    }
+
+    @Override
+    protected void deleteResource() {
+        this.byteBuffer = null;
+        this.intBuffer = null;
+        this.floatBuffer = null;
+        this.shortBuffer = null;
+        this.rawBuffer = null;
+        this.rawBufferSize = 0;
+        this.rawBufferIndex = 0;
+        this.vertexCount = 0;
+        this.isDrawing = false;
     }
 }

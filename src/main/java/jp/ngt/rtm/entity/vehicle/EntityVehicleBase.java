@@ -1,27 +1,28 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.vehicle;
 
 import jp.ngt.ngtlib.entity.EntityCustom;
+import jp.ngt.ngtlib.io.NGTLog;
 import jp.ngt.ngtlib.math.NGTMath;
 import jp.ngt.ngtlib.math.PooledVec3;
 import jp.ngt.ngtlib.math.Vec3;
 import jp.ngt.ngtlib.network.PacketNBT;
 import jp.ngt.ngtlib.util.NGTUtil;
 import jp.ngt.rtm.RTMCore;
+import jp.ngt.rtm.entity.train.EntityTrainBase;
 import jp.ngt.rtm.entity.train.parts.EntityFloor;
+import jp.ngt.rtm.entity.train.parts.EntityTrainWalkableFloor;
 import jp.ngt.rtm.entity.train.util.Formation;
 import jp.ngt.rtm.entity.train.util.TrainState;
 import jp.ngt.rtm.entity.train.util.TrainState.TrainStateType;
@@ -38,6 +39,7 @@ import jp.ngt.rtm.network.PacketVehicleMovement;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.MoverType;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
@@ -66,6 +68,8 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
     private ScriptExecuter executer = new ScriptExecuter();
 
     protected List<EntityFloor> vehicleFloors = new ArrayList<>();
+    private EntityTrainWalkableFloor walkableFloor;
+    private boolean walkableFloorLoaded;
     protected final IUpdateVehicle soundUpdater;
 
     private boolean floorLoaded;
@@ -123,10 +127,6 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
         }
         this.preventEntitySpawning = true;
         this.soundUpdater = world != null ? RTMCore.proxy.getSoundUpdater(this) : null;
-
-        if (world.isRemote) {
-            world.addWeatherEffect(new WeatherEffectDummy(world, this));
-        }
 
         for (TrainStateType type : TrainStateType.values()) {
             this.setVehicleState(type, type.min);
@@ -203,12 +203,102 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
 
     @Override
     public void syncData() {
-        this.updateResourceState();
+        PacketNBT.sendToClient(this);
+    }
+
+    @Override
+    public void addTrackingPlayer(EntityPlayerMP player) {
+        PacketNBT.sendToClient(this, player);
     }
 
     public void setFloor(EntityFloor par1) {
+        if (!this.vehicleFloors.contains(par1)) {
+            this.vehicleFloors.add(par1);
+        }
+    }
 
-        this.vehicleFloors.add(par1);
+    /** Claims the single walkable carrier owned by this vehicle. */
+    public boolean setWalkableFloor(EntityTrainWalkableFloor floor) {
+        if (floor == null || floor.isDead || floor.world != this.world) {
+            return false;
+        }
+
+        this.walkableFloorLoaded = true;
+        EntityTrainWalkableFloor current = this.walkableFloor;
+        if (current == null || current.isDead || current.world != this.world) {
+            this.walkableFloor = floor;
+            return true;
+        }
+        if (current == floor) {
+            return true;
+        }
+
+        boolean currentOccupied = !current.getPassengers().isEmpty();
+        boolean candidateOccupied = !floor.getPassengers().isEmpty();
+        if (!this.world.isRemote && currentOccupied && candidateOccupied) {
+            return true;
+        }
+        boolean replaceCurrent = candidateOccupied != currentOccupied
+                ? candidateOccupied
+                : floor.getEntityId() < current.getEntityId();
+        if (replaceCurrent) {
+            this.walkableFloor = floor;
+        }
+
+        if (!this.world.isRemote) {
+            EntityTrainWalkableFloor duplicate = replaceCurrent ? current : floor;
+            duplicate.setDead();
+            return this.walkableFloor == floor;
+        }
+        return true;
+    }
+
+    public EntityTrainWalkableFloor getWalkableFloor() {
+        if (this.walkableFloor == null && !this.world.isRemote && !this.walkableFloorLoaded) {
+            this.setupWalkableFloor();
+        }
+        if (this.walkableFloor != null && this.walkableFloor.isDead) {
+            this.walkableFloor = null;
+            this.walkableFloorLoaded = false;
+        }
+        return this.walkableFloor;
+    }
+
+    /** Repairs stale references left by a rejected or legacy duplicate carrier. */
+    public void repairWalkableFloorReference() {
+        this.walkableFloor = null;
+        this.walkableFloorLoaded = false;
+        for (Entity entity : new ArrayList<>(this.world.loadedEntityList)) {
+            if (entity instanceof EntityTrainWalkableFloor && !entity.isDead
+                    && this.world.getEntityByID(entity.getEntityId()) == entity
+                    && ((EntityTrainWalkableFloor) entity).getParentVehicle() == this) {
+                this.setWalkableFloor((EntityTrainWalkableFloor) entity);
+            }
+        }
+    }
+
+    /**
+     * Re-anchors ordinary passengers after all client entities have ticked.
+     * Position and view use the completed vehicle pose; train-walking local
+     * coordinates and prediction state stay untouched.
+     */
+    @SideOnly(Side.CLIENT)
+    public void synchronizeClientPassengerPositions() {
+        if (!this.world.isRemote || this.isDead) {
+            return;
+        }
+
+        for (Entity passenger : new ArrayList<>(this.getPassengers())) {
+            this.updatePassengerPosition(passenger);
+            this.updatePassengerView(passenger, false);
+        }
+
+        for (EntityFloor floor : new ArrayList<>(this.vehicleFloors)) {
+            if (floor != null && !floor.isDead && floor.getParentVehicle() == this) {
+                floor.synchronizeClientPassengerPositions(this);
+            }
+        }
+
     }
 
     @Override
@@ -224,8 +314,13 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
                 }
             }
 
+            if (this.walkableFloor != null) {
+                this.walkableFloor.setDead();
+                this.walkableFloor = null;
+            }
 
-            RTMCore.NETWORK_WRAPPER.sendToAll(new PacketVehicleMovement(this, true));
+
+            RTMCore.NETWORK_WRAPPER.sendToAllTracking(new PacketVehicleMovement(this, true), this);
         }
     }
 
@@ -265,6 +360,9 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
 
             if (!this.floorLoaded) {
                 this.setupFloors();
+            }
+            if (!this.walkableFloorLoaded) {
+                this.setupWalkableFloor();
             }
 
             Entity passenger = this.getFirstPassenger();
@@ -399,6 +497,14 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
      *
      */
     public void fixRiderPosOnDismount(Entity passenger, Entity ridingEntity) {
+        Vec3 position = this.getSafeDismountPosition(passenger, ridingEntity);
+        if (position != null) {
+            passenger.setPositionAndUpdate(position.getX(), position.getY(), position.getZ());
+        }
+    }
+
+    /** Finds a collision-free dismount location without moving the passenger. */
+    public Vec3 getSafeDismountPosition(Entity passenger, Entity ridingEntity) {
         AxisAlignedBB vehicleAABB = null;
 
         try {
@@ -415,28 +521,35 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
         Vec3 vec = PooledVec3.create(ridingEntity.posX - this.posX, ridingEntity.posY - this.posY, ridingEntity.posZ - this.posZ);
 
         vec = vec.rotateAroundY(-this.rotationYaw);
+        double localY = vec.getY();
+        double localZ = vec.getZ();
         float yawDif = NGTMath.wrapAngle(-passenger.rotationYaw - this.rotationYaw);
 
-        double fixX = (yawDif >= 0.0D) ? vehicleAABB.maxX + 0.5D : vehicleAABB.minX - 0.5D;
-        vec = PooledVec3.create(fixX, vec.getY(), vec.getZ());
-        vec = vec.rotateAroundY(this.rotationYaw);
+        double rightX = vehicleAABB.maxX + 0.5D;
+        double leftX = vehicleAABB.minX - 0.5D;
+        double preferredX = yawDif >= 0.0D ? rightX : leftX;
+        double alternateX = yawDif >= 0.0D ? leftX : rightX;
 
-        if (vec.length() <= 16.0D) {
-            final double maxY = 5.0D;
-            double x = this.posX + vec.getX();
-            double y = this.posY + vec.getY();
-            double z = this.posZ + vec.getZ();
-            double newY = this.getDismountY(x, y, z, y + maxY);
-            if (newY - y >= maxY) {
-                vec = PooledVec3.create(-fixX, vec.getY(), vec.getZ());
-                vec = vec.rotateAroundY(this.rotationYaw);
-                x = this.posX + vec.getX();
-                y = this.posY + vec.getY();
-                z = this.posZ + vec.getZ();
-                newY = this.getDismountY(x, y, z, y + maxY);
+        for (double candidateX : new double[]{preferredX, alternateX}) {
+            Vec3 candidate = PooledVec3.create(candidateX, localY, localZ)
+                    .rotateAroundY(this.rotationYaw);
+            if (candidate.length() > 16.0D) {
+                continue;
             }
-            passenger.setPositionAndUpdate(x, y, z);
+            double x = this.posX + candidate.getX();
+            double y = this.posY + candidate.getY();
+            double z = this.posZ + candidate.getZ();
+            double newY = this.getDismountY(x, y, z, y + 5.0D);
+            if (newY - y >= 5.0D) {
+                continue;
+            }
+            AxisAlignedBB box = passenger.getEntityBoundingBox().offset(
+                    x - passenger.posX, newY - passenger.posY, z - passenger.posZ);
+            if (this.world.getCollisionBoxes(passenger, box).isEmpty()) {
+                return new Vec3(x, newY, z);
+            }
         }
+        return null;
     }
 
     private double getDismountY(double x, double y, double z, double maxY) {
@@ -452,19 +565,117 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
     @Override
     public void updatePassenger(Entity passenger) {
         if (this.isPassenger(passenger)) {
-            Vec3 vec = this.getRiderPos(passenger);
-            vec = vec.rotateAroundZ(-this.rotationRoll);
-            vec = vec.rotateAroundX(this.rotationPitch);
-            vec = vec.rotateAroundY(this.rotationYaw);
-            double x = this.posX + vec.getX();
-            double y = this.posY + vec.getY();
-            double z = this.posZ + vec.getZ();
-            passenger.setPosition(x, y, z);
-
-
-            passenger.rotationYaw -= NGTMath.wrapAngle(this.rotationYaw - this.prevRotationYaw);
-            passenger.rotationPitch -= NGTMath.wrapAngle(this.rotationPitch - this.prevRotationPitch);
+            this.updatePassengerPosition(passenger);
+            if (!this.world.isRemote) {
+                this.updatePassengerView(passenger, false);
+            }
         }
+    }
+
+    /** Applies the current vehicle tick's orientation delta without changing position. */
+    public void updatePassengerView(Entity passenger) {
+        this.updatePassengerView(passenger, true);
+    }
+
+    /** Applies the view delta and optionally rotates the rendered body with the vehicle. */
+    public void updatePassengerView(Entity passenger, boolean rotateBody) {
+        float yawDelta = NGTMath.wrapAngle(this.rotationYaw - this.prevRotationYaw);
+        passenger.rotationYaw -= yawDelta;
+        passenger.rotationPitch -= NGTMath.wrapAngle(this.rotationPitch - this.prevRotationPitch);
+        if (rotateBody && passenger instanceof EntityLivingBase) {
+            ((EntityLivingBase) passenger).renderYawOffset -= yawDelta;
+        }
+    }
+
+    /** Updates only the passenger's world position from the current vehicle pose. */
+    public void updatePassengerPosition(Entity passenger) {
+        if (!this.isPassenger(passenger)) {
+            return;
+        }
+        Vec3 world = this.localToWorld(this.getRiderPos(passenger));
+        passenger.setPosition(world.getX(), world.getY(), world.getZ());
+    }
+
+    /** Applies the vehicle's current rigid transform to a vehicle-local point. */
+    public Vec3 localToWorld(Vec3 local) {
+        return this.localToWorld(local, this.posX, this.posY, this.posZ,
+                this.rotationYaw, this.rotationPitch, this.rotationRoll);
+    }
+
+    /** Applies an explicitly supplied vehicle pose to a vehicle-local point. */
+    public Vec3 localToWorld(Vec3 local, double x, double y, double z,
+                             float yaw, float pitch, float roll) {
+        // MathHelper's trigonometric lookup is reduced to 4096 entries when
+        // OptiFine Fast Math is enabled. At the end of a long carriage that
+        // angle quantization becomes visible as lateral camera stepping.
+        double rollRad = Math.toRadians(-roll);
+        double rollCos = Math.cos(rollRad);
+        double rollSin = Math.sin(rollRad);
+        double x0 = local.getX() * rollCos + local.getY() * rollSin;
+        double y0 = local.getY() * rollCos - local.getX() * rollSin;
+        double z0 = local.getZ();
+
+        double pitchRad = Math.toRadians(pitch);
+        double pitchCos = Math.cos(pitchRad);
+        double pitchSin = Math.sin(pitchRad);
+        double x1 = x0;
+        double y1 = y0 * pitchCos + z0 * pitchSin;
+        double z1 = z0 * pitchCos - y0 * pitchSin;
+
+        double yawRad = Math.toRadians(yaw);
+        double yawCos = Math.cos(yawRad);
+        double yawSin = Math.sin(yawRad);
+        double x2 = x1 * yawCos + z1 * yawSin;
+        double z2 = z1 * yawCos - x1 * yawSin;
+        return new Vec3(x2 + x, y1 + y, z2 + z);
+    }
+
+    /** Converts a world point using an explicitly supplied inverse vehicle pose. */
+    public Vec3 worldToLocal(Vec3 world, double x, double y, double z,
+                             float yaw, float pitch, float roll) {
+        double relativeX = world.getX() - x;
+        double relativeY = world.getY() - y;
+        double relativeZ = world.getZ() - z;
+
+        double yawRad = Math.toRadians(-yaw);
+        double yawCos = Math.cos(yawRad);
+        double yawSin = Math.sin(yawRad);
+        double x0 = relativeX * yawCos + relativeZ * yawSin;
+        double y0 = relativeY;
+        double z0 = relativeZ * yawCos - relativeX * yawSin;
+
+        double pitchRad = Math.toRadians(-pitch);
+        double pitchCos = Math.cos(pitchRad);
+        double pitchSin = Math.sin(pitchRad);
+        double x1 = x0;
+        double y1 = y0 * pitchCos + z0 * pitchSin;
+        double z1 = z0 * pitchCos - y0 * pitchSin;
+
+        double rollRad = Math.toRadians(roll);
+        double rollCos = Math.cos(rollRad);
+        double rollSin = Math.sin(rollRad);
+        double x2 = x1 * rollCos + y1 * rollSin;
+        double y2 = y1 * rollCos - x1 * rollSin;
+        return new Vec3(x2, y2, z1);
+    }
+
+    /** Converts a world point into local coordinates using the previous client pose. */
+    @SideOnly(Side.CLIENT)
+    public Vec3 previousWorldToLocal(Vec3 world) {
+        return this.worldToLocal(world, this.lastTickPosX, this.lastTickPosY, this.lastTickPosZ,
+                this.prevRotationYaw, this.prevRotationPitch, this.prevRotationRoll);
+    }
+
+    /** Generates a world point from the vehicle pose interpolated for this render frame. */
+    @SideOnly(Side.CLIENT)
+    public Vec3 interpolatedLocalToWorld(Vec3 local, float partialTick) {
+        double x = this.lastTickPosX + (this.posX - this.lastTickPosX) * partialTick;
+        double y = this.lastTickPosY + (this.posY - this.lastTickPosY) * partialTick;
+        double z = this.lastTickPosZ + (this.posZ - this.lastTickPosZ) * partialTick;
+        float yaw = this.prevRotationYaw + NGTMath.wrapAngle(this.rotationYaw - this.prevRotationYaw) * partialTick;
+        float pitch = this.prevRotationPitch + (this.rotationPitch - this.prevRotationPitch) * partialTick;
+        float roll = this.getInterpolatedRoll(partialTick);
+        return this.localToWorld(local, x, y, z, yaw, pitch, roll);
     }
 
     public Vec3 getRiderPos(Entity passenger) {
@@ -491,8 +702,15 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
 
     @SideOnly(Side.CLIENT)
     public void setPositionAndRotationDirect(double x, double y, double z, float yaw, float pitch, int par6, boolean par10, long serverTick) {
+        this.setPositionAndRotationDirect(x, y, z, yaw, pitch, this.vehicleRoll, par6, par10, serverTick);
+    }
+
+    /** Queues one complete server pose so position, rotation and roll share a timestamp. */
+    @SideOnly(Side.CLIENT)
+    public void setPositionAndRotationDirect(double x, double y, double z, float yaw, float pitch, float roll,
+                                             int par6, boolean par10, long serverTick) {
         long tickKey = (serverTick >= 0) ? serverTick : this.ticksExisted;
-        this.snapshotBuffer.addLast(new Snapshot(tickKey, x, y, z, yaw, pitch, this.vehicleRoll));
+        this.snapshotBuffer.addLast(new Snapshot(tickKey, x, y, z, yaw, pitch, roll));
         while (this.snapshotBuffer.size() > 16) {
             this.snapshotBuffer.removeFirst();
         }
@@ -511,6 +729,12 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
 
     public float getRoll() {
         return this.rotationRoll;
+    }
+
+    /** Matches the roll interpolation used by the vehicle renderer. */
+    @SideOnly(Side.CLIENT)
+    public float getInterpolatedRoll(float partialTick) {
+        return this.prevRotationRoll + (this.rotationRoll - this.prevRotationRoll) * partialTick;
     }
 
     public abstract float getSpeed();
@@ -638,6 +862,32 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
         }
     }
 
+    /** Server-side creation of the optional rectangular train interior carrier. */
+    private void setupWalkableFloor() {
+        this.walkableFloorLoaded = true;
+        if (!(this instanceof EntityTrainBase)) {
+            return;
+        }
+
+        jp.ngt.rtm.modelpack.cfg.TrainConfig.WalkableConfig config =
+                ((EntityTrainBase) this).getResourceState().getResourceSet().getConfig().walkable;
+        if (config == null || !config.isValid()) {
+            NGTLog.debug("[WalkableFloor] disabled train=%d", this.getEntityId());
+            return;
+        }
+
+        EntityTrainWalkableFloor floor = new EntityTrainWalkableFloor(
+                this.world, this, config.center, config.length, config.width);
+        if (this.world.spawnEntity(floor)) {
+            this.walkableFloor = floor;
+            NGTLog.debug("[WalkableFloor] spawned train=%d floor=%d center=(%.2f,%.2f,%.2f) size=(%.2f,%.2f)",
+                    this.getEntityId(), floor.getEntityId(), config.center[0], config.center[1], config.center[2],
+                    config.length, config.width);
+        } else {
+            this.walkableFloorLoaded = false;
+        }
+    }
+
     @Override
     public String getName() {
         return this.getResourceState().getName();
@@ -653,6 +903,11 @@ public abstract class EntityVehicleBase<T extends ModelSetVehicleBase> extends E
         if (this.world == null || !this.world.isRemote) {
             PacketNBT.sendToClient(this);
             this.floorLoaded = false;
+            this.walkableFloorLoaded = false;
+            if (this.walkableFloor != null) {
+                this.walkableFloor.setDead();
+                this.walkableFloor = null;
+            }
         }
 
         if (this.world.isRemote) {

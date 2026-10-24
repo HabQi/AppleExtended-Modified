@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.ngtlib.renderer.model;
@@ -64,7 +62,7 @@ public abstract class PolygonModel implements IModelNGT {
     static Pattern repS = Pattern.compile("\\s+");
 
     private void loadModel(InputStream inputStream) {
-        com.anatawa12.fixRtm.libs.kotlin.Pair<java.nio.charset.Charset, InputStream> pair = com.anatawa12.fixRtm.ngtlib.renderer.model.PolygonModelCharsetDetector.INSTANCE.detectCharset(inputStream);
+        kotlin.Pair<java.nio.charset.Charset, InputStream> pair = com.anatawa12.fixRtm.ngtlib.renderer.model.PolygonModelCharsetDetector.INSTANCE.detectCharset(inputStream);
         inputStream = pair.component2();
         BufferedReader bufferedreader = new BufferedReader(new InputStreamReader(inputStream, pair.component1()));
         Stream<String> stream = bufferedreader.lines();

@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.network;
@@ -20,6 +18,7 @@ import jp.ngt.rtm.entity.util.ColFace;
 import jp.ngt.rtm.modelpack.ModelPackManager;
 import jp.ngt.rtm.modelpack.ResourceType;
 import jp.ngt.rtm.modelpack.modelset.ModelSetBase;
+import jp.ngt.rtm.modelpack.modelset.ModelSetTrain;
 import jp.ngt.rtm.modelpack.modelset.ResourceSet;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -135,6 +134,9 @@ public class PacketCollisionObj implements IMessage, IMessageHandler<PacketColli
     @Override
     public IMessage onMessage(PacketCollisionObj message, MessageContext ctx) {
         ResourceSet set = ModelPackManager.INSTANCE.getResourceSet(message.type, message.modelName);
+        if (set instanceof ModelSetTrain) {
+            return null;
+        }
         if (set instanceof ModelSetBase) {
             ((ModelSetBase) set).addColFace(message.partsName, message.face, message.status);
         }

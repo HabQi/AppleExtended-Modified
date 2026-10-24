@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.ngtlib.renderer;
@@ -222,16 +220,30 @@ public class VBO extends GLObject implements IRenderer {
             vIndexInt.put(vIndex);
             vIndexByte.flip();
 
-            this.vboId = GL15.glGenBuffers();
-            this.vioId = GL15.glGenBuffers();
+            int newVboId = 0;
+            int newVioId = 0;
+            try {
+                newVboId = GL15.glGenBuffers();
+                newVioId = GL15.glGenBuffers();
 
-            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.vboId);
-            GL15.glBufferData(GL15.GL_ARRAY_BUFFER, this.intBuffer, GL15.GL_STATIC_DRAW);
-            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+                GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, newVboId);
+                GL15.glBufferData(GL15.GL_ARRAY_BUFFER, this.intBuffer, GL15.GL_STATIC_DRAW);
 
-            GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, this.vioId);
-            GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, vIndexInt, GL15.GL_STATIC_DRAW);
-            GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0);
+                GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, newVioId);
+                GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, vIndexInt, GL15.GL_STATIC_DRAW);
+            } catch (RuntimeException | Error e) {
+                GLHelper.deleteBuffer(newVboId);
+                GLHelper.deleteBuffer(newVioId);
+                throw e;
+            } finally {
+                GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+                GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0);
+            }
+
+            GLHelper.deleteBuffer(this.vboId);
+            GLHelper.deleteBuffer(this.vioId);
+            this.vboId = newVboId;
+            this.vioId = newVioId;
 
             /*if(this.rawBufferSize > 0x20000 && this.rawBufferIndex < (this.rawBufferSize << 3))
             {
@@ -359,5 +371,23 @@ public class VBO extends GLObject implements IRenderer {
         int b1 = (int) (par2 * 127.0F);
         int b2 = (int) (par3 * 127.0F);
         this.normal = b0 & 0xFF | (b1 & 0xFF) << 8 | (b2 & 0xFF) << 16;
+    }
+
+    @Override
+    protected void deleteResource() {
+        if (this.vboId > 0) {
+            GL15.glDeleteBuffers(this.vboId);
+            this.vboId = 0;
+        }
+        if (this.vioId > 0) {
+            GL15.glDeleteBuffers(this.vioId);
+            this.vioId = 0;
+        }
+
+        this.rawBuffer = null;
+        this.rawBufferSize = 0;
+        this.rawBufferIndex = 0;
+        this.vertexCount = 0;
+        this.isDrawing = false;
     }
 }

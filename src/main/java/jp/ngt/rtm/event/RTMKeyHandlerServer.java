@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.event;
@@ -38,7 +36,7 @@ public final class RTMKeyHandlerServer {
                 this.setVehicleState(player, -1);
                 break;
             case RTMCore.KEY_Horn:
-                this.playSound(player, sound, 6.0F, false);
+                this.playHornSound(player, sound);
                 break;
             case RTMCore.KEY_Chime:
                 this.playSound(player, sound, 1.0F, true);
@@ -76,6 +74,13 @@ public final class RTMKeyHandlerServer {
             } else {
                 RTMCore.proxy.playSound(entitytrainbase, sound, vol, 1.0F);
             }
+        }
+    }
+
+    private void playHornSound(EntityPlayer player, String sound) {
+        EntityTrainBase train = this.getRidingTrain(player);
+        if (train != null && sound != null) {
+            RTMCore.proxy.playHornSound(train, sound, 1.0F, 1.0F);
         }
     }
 

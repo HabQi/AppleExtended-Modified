@@ -1,26 +1,27 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.rail;
 
 import jp.ngt.ngtlib.block.BlockUtil;
 import jp.ngt.ngtlib.renderer.GLHelper;
+import jp.ngt.ngtlib.renderer.GLObject;
 import jp.ngt.ngtlib.renderer.IRenderer;
 import jp.ngt.ngtlib.renderer.NGTTessellator;
 import jp.ngt.ngtlib.renderer.VertexArray2;
 import jp.ngt.ngtlib.util.NGTUtilClient;
 import jp.ngt.rtm.modelpack.state.ResourceStateRail;
+import jp.ngt.rtm.render.RailBuildProfiler;
+import jp.ngt.rtm.render.RailResourceBuildQueue;
 import jp.ngt.rtm.rail.util.RailMap;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
@@ -29,6 +30,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.init.Blocks;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
@@ -47,10 +49,28 @@ public final class RenderRailBlock {
     private static final float SNOW_THICKNESS = 0.125F;
 
     private final List<int[]> blockPosList = new ArrayList<>();
+    private final List<Block> preparedBlocks = new ArrayList<>();
+    private final List<TileEntityLargeRailBase> preparedTiles = new ArrayList<>();
+    private boolean preparedDataComplete;
 
     //VA版
     public void renderRailBlocksVA(TileEntityLargeRailCore tileEntity, double par2, double par4, double par6, float par8) {
+        if (!(tileEntity.railBlocks instanceof VertexArray2)) {
+            this.renderRailBlocks(tileEntity, par2, par4, par6, par8);
+            return;
+        }
         boolean hasGLList = GLHelper.isValid(tileEntity.railBlocks);
+        if (!this.isResourceReady(tileEntity)) {
+            RailResourceBuildQueue.INSTANCE.enqueueBlock(tileEntity);
+            if (hasGLList && tileEntity.shouldRerenderBlock) {
+                GL11.glPushMatrix();
+                GL11.glTranslatef((float) (par2 - tileEntity.getX()), (float) (par4 - tileEntity.getY()), (float) (par6 - tileEntity.getZ()));
+                NGTUtilClient.bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
+                ((VertexArray2) tileEntity.railBlocks).render();
+                GL11.glPopMatrix();
+            }
+            return;
+        }
         if (!hasGLList) {
             tileEntity.railBlocks = GLHelper.generateVA();
         } else if (tileEntity.shouldRerenderBlock)//再描画
@@ -82,6 +102,17 @@ public final class RenderRailBlock {
     //GLList版
     public void renderRailBlocks(TileEntityLargeRailCore tileEntity, double par2, double par4, double par6, float par8) {
         boolean hasGLList = GLHelper.isValid(tileEntity.railBlocks);
+        if (!this.isResourceReady(tileEntity)) {
+            RailResourceBuildQueue.INSTANCE.enqueueBlock(tileEntity);
+            if (hasGLList) {
+                GL11.glPushMatrix();
+                GL11.glTranslatef((float) (par2 - tileEntity.getX()), (float) (par4 - tileEntity.getY()), (float) (par6 - tileEntity.getZ()));
+                NGTUtilClient.bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
+                GLHelper.callList(tileEntity.railBlocks);
+                GL11.glPopMatrix();
+            }
+            return;
+        }
         if (!hasGLList) {
             tileEntity.railBlocks = GLHelper.generateGLList(tileEntity.railBlocks);
         } else if (tileEntity.shouldRerenderBlock)//再描画
@@ -116,14 +147,86 @@ public final class RenderRailBlock {
     /**
      * @return 全ブロックの描画に成功
      */
+    public boolean isResourceReady(TileEntityLargeRailCore rail) {
+        return rail != null && !rail.shouldRerenderBlock && GLHelper.isValid(rail.railBlocks);
+    }
+
+    /** Builds available ballast data into a temporary display list. */
+    public boolean buildResource(TileEntityLargeRailCore rail) {
+        if (rail == null) {
+            return false;
+        }
+        if (this.isResourceReady(rail)) {
+            return true;
+        }
+        if (!this.prepareBlocks(rail)) {
+            rail.shouldRerenderBlock = true;
+            return false;
+        }
+        boolean dataComplete = this.preparedDataComplete;
+
+        GLObject newList = GLHelper.generateGLList(null);
+        boolean compiling = false;
+        boolean success;
+        long compileStartedAt = System.nanoTime();
+        try {
+            GLHelper.startCompile(newList);
+            compiling = true;
+            success = this.renderPreparedBlocks(rail, NGTTessellator.instance);
+        } catch (RuntimeException | Error throwable) {
+            GLHelper.deleteGLList(newList);
+            throw throwable;
+        } finally {
+            this.clearPreparedBlocks();
+            RailBuildProfiler.recordStage(RailBuildProfiler.Stage.BALLAST_COMPILE,
+                    System.nanoTime() - compileStartedAt);
+            if (compiling) {
+                long finalizeStartedAt = System.nanoTime();
+                try {
+                    GLHelper.endCompile();
+                } finally {
+                    RailBuildProfiler.recordStage(RailBuildProfiler.Stage.GL_FINALIZE,
+                            System.nanoTime() - finalizeStartedAt);
+                }
+            }
+        }
+        if (!success) {
+            GLHelper.deleteGLList(newList);
+            rail.shouldRerenderBlock = true;
+            return false;
+        }
+
+        GLObject oldList = rail.railBlocks;
+        rail.railBlocks = newList;
+        rail.shouldRerenderBlock = !dataComplete;
+        rail.initializeBrightnessBaseline();
+        GLHelper.deleteGLList(oldList);
+        return dataComplete;
+    }
+
     public boolean renderBlocks(TileEntityLargeRailCore rail, IRenderer renderer) {
+        if (!this.prepareBlocks(rail)) {
+            return false;
+        }
+        boolean dataComplete = this.preparedDataComplete;
+        try {
+            return this.renderPreparedBlocks(rail, renderer) && dataComplete;
+        } finally {
+            this.clearPreparedBlocks();
+        }
+    }
+
+    private boolean prepareBlocks(TileEntityLargeRailCore rail) {
+        this.clearPreparedBlocks();
+        this.preparedDataComplete = true;
+        long mapStartedAt = System.nanoTime();
         RailMap[] rms = rail.getAllRailMaps();
+        RailBuildProfiler.recordStage(RailBuildProfiler.Stage.RAIL_MAP, System.nanoTime() - mapStartedAt);
         if (rms == null) {
             return false;
         }
 
-        boolean flag = true;
-
+        long blockListStartedAt = System.nanoTime();
         for (RailMap rm : rms) {
             List<int[]> list = rm.getRailBlockList(rail.getResourceState(), false);
 			/*if(!this.checkRailBlock(tileEntity.getWorld(), list))
@@ -132,52 +235,89 @@ public final class RenderRailBlock {
 			}*/
             this.blockPosList.addAll(list);
         }
+        RailBuildProfiler.recordStage(RailBuildProfiler.Stage.BALLAST_BLOCK_LIST,
+                System.nanoTime() - blockListStartedAt);
 
         if (this.blockPosList.size() < 2) {
-            this.blockPosList.clear();
+            this.clearPreparedBlocks();
             return false;
         }
 
+        World world = rail.getWorld();
+        ResourceStateRail property = rail.getResourceState();
+        long validationStartedAt = System.nanoTime();
+        try {
+            for (int[] position : this.blockPosList) {
+                BlockPos blockPos = new BlockPos(position[0], position[1], position[2]);
+                if (!world.isBlockLoaded(blockPos)) {
+                    RailBuildProfiler.recordBallastDataIssue(RailBuildProfiler.BallastDataIssue.CHUNK_UNLOADED);
+                    this.preparedDataComplete = false;
+                    this.preparedBlocks.add(null);
+                    this.preparedTiles.add(null);
+                    continue;
+                }
+
+                Block block = world.getBlockState(blockPos).getBlock();
+                TileEntityLargeRailBase tile = null;
+                if (block instanceof BlockLargeRailBase && property.block != Blocks.AIR) {
+                    TileEntity tileEntity = BlockUtil.getTileEntity(world, blockPos);
+                    if (!(tileEntity instanceof TileEntityLargeRailBase)) {
+                        RailBuildProfiler.recordBallastDataIssue(RailBuildProfiler.BallastDataIssue.TILE_ENTITY_MISSING);
+                        this.preparedDataComplete = false;
+                        this.preparedBlocks.add(null);
+                        this.preparedTiles.add(null);
+                        continue;
+                    }
+                    tile = (TileEntityLargeRailBase) tileEntity;
+                } else if (!(block instanceof BlockLargeRailBase) && property.block != Blocks.AIR) {
+                    RailBuildProfiler.recordBallastDataIssue(RailBuildProfiler.BallastDataIssue.ACTUAL_BLOCK_MISSING);
+                }
+                this.preparedBlocks.add(block);
+                this.preparedTiles.add(tile);
+            }
+            return true;
+        } finally {
+            RailBuildProfiler.recordStage(RailBuildProfiler.Stage.BALLAST_VALIDATE,
+                    System.nanoTime() - validationStartedAt);
+        }
+    }
+
+    private boolean renderPreparedBlocks(TileEntityLargeRailCore rail, IRenderer renderer) {
+        long tessellationStartedAt = System.nanoTime();
         renderer.startDrawing(GL11.GL_QUADS);
-        for (int[] ia : this.blockPosList) {
+        for (int i = 0; i < this.blockPosList.size(); ++i) {
+            int[] ia = this.blockPosList.get(i);
             World world = rail.getWorld();
             int x = ia[0];
             int y = ia[1];
             int z = ia[2];
-            Block block = BlockUtil.getBlock(world, x, y, z);
-            try {
-                if (!this.renderWorldBlock(rail, renderer, world, x, y, z, block)) {
-                    rail.rerenderCount = 1;
+            Block block = this.preparedBlocks.get(i);
+            if (block == null) {
+                continue;
+            }
+            TileEntityLargeRailBase tile = this.preparedTiles.get(i);
+            if (tile == null) {
+                if (rail.getResourceState().block != Blocks.AIR) {
                     this.renderMissingBlock(renderer, world, x, y, z);
                 }
-            } catch (ClassCastException e)//マーカー置き換え未完了時
-            {
-                flag = false;
-            }
-        }
-
-        if (renderer instanceof VertexArray2) {
-            if (flag) {
-                renderer.draw();
             } else {
-                ((VertexArray2) renderer).cancel();//描画失敗時の無駄なDirectBuf生成を防止
+                this.renderWorldBlock(rail, renderer, world, x, y, z,
+                        block, tile);
             }
-        } else {
-            renderer.draw();
         }
 
-        this.blockPosList.clear();
-        return flag;
+        renderer.draw();
+        RailBuildProfiler.recordStage(RailBuildProfiler.Stage.BALLAST_TESSELLATION,
+                System.nanoTime() - tessellationStartedAt);
+
+        return true;
     }
 
-    private boolean renderWorldBlock(TileEntityLargeRailCore rail, IRenderer renderer, IBlockAccess world, int x, int y, int z, Block block) {
-        TileEntityLargeRailBase tile = (TileEntityLargeRailBase) BlockUtil.getTileEntity(world, x, y, z);
-        if (tile == null) {
-            return false;
-        }
+    private void renderWorldBlock(TileEntityLargeRailCore rail, IRenderer renderer, IBlockAccess world,
+                                  int x, int y, int z, Block block, TileEntityLargeRailBase tile) {
         ResourceStateRail prop = rail.getResourceState();
         if (prop.block == Blocks.AIR) {
-            return true;
+            return;
         }
 
         float[] fa = tile.getBlockHeights(x, y, z, prop.blockHeight, false);
@@ -303,7 +443,12 @@ public final class RenderRailBlock {
             renderer.addVertexWithUV(x + 0.0F, y, z + 1.0F, maxU, maxV - v);
         }
 
-        return true;
+    }
+
+    private void clearPreparedBlocks() {
+        this.blockPosList.clear();
+        this.preparedBlocks.clear();
+        this.preparedTiles.clear();
     }
 
     private void renderMissingBlock(IRenderer renderer, IBlockAccess world, int x, int y, int z) {

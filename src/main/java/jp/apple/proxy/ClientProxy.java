@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.apple.proxy;
@@ -20,7 +18,6 @@ import jp.apple.highlight.HighlightItemChecker;
 import jp.apple.highlight.HighlightRegistry;
 import jp.apple.reloader.ReloadGuiHandler;
 import jp.apple.render.item.CustomIconModelHandler;
-import jp.apple.train.PlayerCameraTrain;
 import jp.apple.train.SoundBlocker;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
@@ -36,7 +33,6 @@ public class ClientProxy implements IProxy {
         MinecraftForge.EVENT_BUS.register(new ReloadGuiHandler());
         MinecraftForge.EVENT_BUS.register(new SoundBlocker());
         MinecraftForge.EVENT_BUS.register(new BlockHighlightHandler());
-        MinecraftForge.EVENT_BUS.register(new PlayerCameraTrain());
         MinecraftForge.EVENT_BUS.register(new CustomIconModelHandler());
 
         HighlightRegistry.register( //試しにやってみたけど別に需要ないなと後から気づいたコネクター

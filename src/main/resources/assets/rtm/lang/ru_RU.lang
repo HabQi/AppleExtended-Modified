@@ -320,6 +320,10 @@ key.rtm.ats=Остановка уведомлений
 key.rtm.eb=Аварийный тормоз
 key.rtm.chime_next=След запись
 key.rtm.chime_prev=Пред запись
+key.rtm.pose_sit=Сесть в поезде
+key.rtm.pose_lie=Лечь в поезде
+key.rtm.pose_raise=Поднять лежачую позу
+key.rtm.pose_lower=Опустить лежачую позу
 
 commands.mctrl.usage=/mctrl help : Показать использование
 commands.npc.usage=/npc : Команда не работает

@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.apple.render;
@@ -18,6 +16,7 @@ import jp.apple.tileentity.TileEntityTrainModel;
 import jp.ngt.ngtlib.renderer.GLHelper;
 import jp.ngt.rtm.modelpack.cfg.TrainConfig;
 import jp.ngt.rtm.modelpack.modelset.ModelSetTrain;
+import jp.ngt.rtm.render.VehicleTexturePreloader;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import org.lwjgl.opengl.GL11;
@@ -30,6 +29,10 @@ public class RenderTileEntityTrainModel extends TileEntitySpecialRenderer<TileEn
         ModelSetTrain modelSet = te.getResourceState().getResourceSet();
 
         if (modelSet == null || modelSet.isDummy() || modelSet.modelObj == null) {
+            return;
+        }
+
+        if (!VehicleTexturePreloader.INSTANCE.ensureReady(modelSet)) {
             return;
         }
 

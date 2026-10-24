@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.network;
@@ -96,14 +94,19 @@ public class PacketVehicleMovement implements IMessage, IMessageHandler<PacketVe
 
     @Override
     public IMessage onMessage(PacketVehicleMovement message, MessageContext ctx) {
+        com.anatawa12.fixRtm.ThreadUtil.runOnClientThread(() -> this.doMessage(message));
+        return null;
+    }
+
+    private void doMessage(PacketVehicleMovement message) {
         World world = NGTUtil.getClientWorld();
         if (world == null) {
-            return null;
+            return;
         }
 
         if (message.vehicleY < 0) {
             this.deleteEntity(world, message.entityId);
-            return null;
+            return;
         }
 
         Entity entity = world.getEntityByID(message.entityId);
@@ -115,9 +118,10 @@ public class PacketVehicleMovement implements IMessage, IMessageHandler<PacketVe
             entity.serverPosY = EntityTracker.getPositionLong(y);
             entity.serverPosZ = EntityTracker.getPositionLong(z);
             if (entity instanceof EntityVehicleBase) {
-                ((EntityVehicleBase) entity).setPositionAndRotationDirect(x, y, z, message.vehicleYaw, message.vehiclePitch,
-                        RTMEntity.FREQ_VEHICLE, false, message.serverTick);
-                ((EntityVehicleBase) entity).setRollAndSpeed(message.vehicleSpeed, message.vehicleRoll);
+                EntityVehicleBase vehicle = (EntityVehicleBase) entity;
+                vehicle.setPositionAndRotationDirect(x, y, z, message.vehicleYaw, message.vehiclePitch,
+                        message.vehicleRoll, RTMEntity.FREQ_VEHICLE, false, message.serverTick);
+                vehicle.setRollAndSpeed(message.vehicleSpeed, message.vehicleRoll);
             } else {
                 entity.setPositionAndRotationDirect(x, y, z, message.vehicleYaw, message.vehiclePitch,
                         RTMEntity.FREQ_VEHICLE, false);
@@ -126,7 +130,6 @@ public class PacketVehicleMovement implements IMessage, IMessageHandler<PacketVe
         } else {
             NGTLog.debug("[PVM] Entity is null or dead %d", message.entityId);
         }
-        return null;
     }
 
     private void deleteEntity(World world, int id) {

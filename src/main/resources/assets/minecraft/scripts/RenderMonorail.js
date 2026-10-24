@@ -1,4 +1,5 @@
 var renderClass = "jp.ngt.rtm.render.RailPartsRenderer";
+var supportsAsyncStaticMesh = true;
 importPackage(Packages.org.lwjgl.opengl);
 importPackage(Packages.jp.ngt.rtm.render);
 importPackage(Packages.jp.ngt.rtm.rail.util);

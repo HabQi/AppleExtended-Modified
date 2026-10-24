@@ -1,0 +1,118 @@
+// Shared dependency packaging for the legacy Gradle 5.6.4 builds.
+configurations {
+    bundledRuntime {
+        canBeConsumed = false
+    }
+    implementation.extendsFrom bundledRuntime
+}
+
+// Keep complete notices under artifact-specific paths before flattening JARs.
+ext.registerDependencyNotices = { String taskName, configuration ->
+    def output = file("$buildDir/generated/${taskName}")
+    tasks.create(name: taskName) {
+        inputs.files(configuration)
+        outputs.dir(output)
+        doLast {
+            delete output
+            output.mkdirs()
+            def coordinates = []
+            configuration.resolvedConfiguration.resolvedArtifacts.sort {
+                "${it.moduleVersion.id}:${it.name}:${it.classifier ?: ''}"
+            }.each { artifact ->
+                def id = artifact.moduleVersion.id
+                coordinates.add("${id.group}:${artifact.name}:${id.version}")
+                if (!artifact.file.name.endsWith('.jar')) return
+                def archive = new java.util.zip.ZipFile(artifact.file)
+                try {
+                    archive.entries().each { entry ->
+                        if (entry.directory) return
+                        def basename = entry.name.tokenize('/').last()
+                        if (!(basename ==~ /(?i)(?:.*[-_])?(?:LICENSE|NOTICE|COPYING|COPYRIGHT)(?:[.\-_].*)?/)) return
+                        def destination = new File(output, "${id.group}/${artifact.name}/${id.version}/${entry.name}")
+                        if (!destination.canonicalPath.startsWith(output.canonicalPath + File.separator)) {
+                            throw new GradleException("Unsafe notice path: ${entry.name}")
+                        }
+                        destination.parentFile.mkdirs()
+                        archive.getInputStream(entry).withCloseable { input ->
+                            destination.withOutputStream { stream -> stream << input }
+                        }
+                    }
+                } finally {
+                    archive.close()
+                }
+            }
+            new File(output, 'DEPENDENCIES.txt').setText(coordinates.unique().sort().join('\n') + '\n', 'UTF-8')
+        }
+    }
+}
+
+registerDependencyNotices('collectBundledNotices', configurations.bundledRuntime)
+
+def serviceOutput = file("$buildDir/generated/bundled-services")
+def projectServiceRoots = [rootProject.file('src/main/resources'), file('src/main/resources')].unique()
+task mergeBundledServices {
+    inputs.files(configurations.bundledRuntime)
+    inputs.files { projectServiceRoots.collect { fileTree(it) { include 'META-INF/services/**' } } }
+    outputs.dir(serviceOutput)
+    doLast {
+        delete serviceOutput
+        serviceOutput.mkdirs()
+        Map<String, LinkedHashSet<String>> descriptors = new TreeMap<>()
+        def merge = { String path, String contents ->
+            def lines = descriptors.computeIfAbsent(path) { new LinkedHashSet<String>() }
+            contents.readLines().each { line ->
+                def provider = line.split('#', 2)[0].trim()
+                if (provider) lines.add(provider)
+            }
+        }
+        projectServiceRoots.each { resourceRoot ->
+            fileTree(resourceRoot).matching { include 'META-INF/services/**' }.files.sort().each { resource ->
+                merge(resourceRoot.toPath().relativize(resource.toPath()).toString().replace('\\', '/'), resource.getText('UTF-8'))
+            }
+        }
+        configurations.bundledRuntime.files.sort().each { dependency ->
+            if (!dependency.name.endsWith('.jar')) return
+            def archive = new java.util.zip.ZipFile(dependency)
+            try {
+                archive.entries().each { entry ->
+                    if (!entry.directory && entry.name.startsWith('META-INF/services/')) {
+                        archive.getInputStream(entry).withCloseable { input -> merge(entry.name, input.getText('UTF-8')) }
+                    }
+                }
+            } finally {
+                archive.close()
+            }
+        }
+        descriptors.each { path, providers ->
+            def destination = new File(serviceOutput, path)
+            if (!destination.canonicalPath.startsWith(serviceOutput.canonicalPath + File.separator)) {
+                throw new GradleException("Unsafe service path: $path")
+            }
+            destination.parentFile.mkdirs()
+            destination.setText(providers.join('\n') + '\n', 'UTF-8')
+        }
+    }
+}
+
+jar {
+    dependsOn collectBundledNotices, mergeBundledServices
+    from({ configurations.bundledRuntime.files.collect { zipTree(it) } }) {
+        exclude 'META-INF/MANIFEST.MF', 'META-INF/INDEX.LIST'
+        exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+        exclude 'module-info.class', 'META-INF/versions/**/module-info.class'
+        exclude 'META-INF/services/**'
+    }
+    // Discard original service copies in favor of the merged descriptors.
+    eachFile { details ->
+        if (details.path.startsWith('META-INF/services/') &&
+                !details.file.canonicalPath.startsWith(serviceOutput.canonicalPath + File.separator)) {
+            details.exclude()
+        }
+    }
+    from(serviceOutput)
+    from(file("$buildDir/generated/collectBundledNotices")) { into 'META-INF/licenses/dependencies' }
+    from(rootProject.file('licenses')) { into 'META-INF/licenses' }
+    from(rootProject.file('LICENSE-FOR-ORIGINAL-AUTHOR.txt')) {
+        rename { 'LICENSE-FOR-ORIGINAL-AUTHOR.txt' }
+    }
+}

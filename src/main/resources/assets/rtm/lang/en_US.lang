@@ -228,6 +228,10 @@ rtm.ats=Stop ATS Sound
 key.rtm.eb=Emergency brake
 key.rtm.chime_next=Next chime
 key.rtm.chime_prev=Prev chime
+key.rtm.pose_sit=Sit inside train
+key.rtm.pose_lie=Lie down inside train
+key.rtm.pose_raise=Raise lying pose
+key.rtm.pose_lower=Lower lying pose
 
 commands.mctrl.usage=/mctrl help : Show usage
 commands.npc.usage=/npc : ???

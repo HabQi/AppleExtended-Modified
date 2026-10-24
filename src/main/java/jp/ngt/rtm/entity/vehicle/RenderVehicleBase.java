@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.vehicle;
@@ -21,6 +19,7 @@ import jp.ngt.ngtlib.renderer.GLHelper;
 import jp.ngt.ngtlib.renderer.GLObject;
 import jp.ngt.ngtlib.renderer.NGTObjectRenderer;
 import jp.ngt.ngtlib.renderer.NGTTessellator;
+import jp.ngt.ngtlib.renderer.TESRRenderStats;
 import jp.ngt.ngtlib.util.NGTUtil;
 import jp.ngt.ngtlib.util.NGTUtilClient;
 import jp.ngt.ngtlib.world.NGTWorld;
@@ -34,6 +33,10 @@ import jp.ngt.rtm.modelpack.cfg.VehicleBaseConfig.Rollsign;
 import jp.ngt.rtm.modelpack.modelset.ModelSetVehicleBase;
 import jp.ngt.rtm.render.PartsRenderer;
 import jp.ngt.rtm.render.RenderPass;
+import jp.ngt.rtm.render.VehicleFrustumCulling;
+import jp.ngt.rtm.render.VehicleRenderHooks;
+import jp.ngt.rtm.render.VehicleTemporalReprojection;
+import jp.ngt.rtm.render.VehicleTexturePreloader;
 import jp.ngt.rtm.util.RenderUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.culling.ICamera;
@@ -69,24 +72,33 @@ public class RenderVehicleBase extends Render<EntityVehicleBase> {
         GL11.glRotatef(f, 0.0F, 1.0F, 0.0F);
         float f1 = vehicle.prevRotationPitch + (vehicle.rotationPitch - vehicle.prevRotationPitch) * par9;
         GL11.glRotatef(-f1, 1.0F, 0.0F, 0.0F);
-        float f2 = vehicle.prevRotationRoll + (vehicle.rotationRoll - vehicle.prevRotationRoll) * par9;
+        float f2 = vehicle.getInterpolatedRoll(par9);
         GL11.glRotatef(f2, 0.0F, 0.0F, 1.0F);
-        if (Minecraft.getMinecraft().getRenderManager().isDebugBoundingBox()) {
-            this.debugCollision(vehicle);
-        }
-
-        VehicleNGTO vehiclengto = vehicle.getNGTO();
-        if (vehiclengto != null) {
-            this.renderVehicleNGTO((EntityVehicle) vehicle, vehiclengto, par9);
-        } else {
-            ModelSetVehicleBase modelSet = (ModelSetVehicleBase) vehicle.getResourceState().getResourceSet();
-            if (modelSet != null) {
-                float[] fa = modelSet.getConfig().offset;
-                GL11.glTranslated(fa[0], fa[1], fa[2]);
-                this.renderVehicleMain(vehicle, modelSet, par9);
-            } else {
-                RTMCore.proxy.renderMissingModel();
+        int temporalProgram = VehicleTemporalReprojection.beginVehicle(vehicle);
+        try {
+            if (Minecraft.getMinecraft().getRenderManager().isDebugBoundingBox()) {
+                this.debugCollision(vehicle);
             }
+
+            VehicleNGTO vehiclengto = vehicle.getNGTO();
+            if (vehiclengto != null) {
+                this.renderVehicleNGTO((EntityVehicle) vehicle, vehiclengto, par9);
+            } else {
+                ModelSetVehicleBase modelSet = (ModelSetVehicleBase) vehicle.getResourceState().getResourceSet();
+                if (modelSet != null) {
+                    if (!VehicleTexturePreloader.INSTANCE.ensureReady(modelSet)) {
+                        GL11.glPopMatrix();
+                        return;
+                    }
+                    float[] fa = modelSet.getConfig().offset;
+                    GL11.glTranslated(fa[0], fa[1], fa[2]);
+                    this.renderVehicleMain(vehicle, modelSet, par9);
+                } else {
+                    RTMCore.proxy.renderMissingModel();
+                }
+            }
+        } finally {
+            VehicleTemporalReprojection.endVehicle(temporalProgram);
         }
 
         GL11.glPopMatrix();
@@ -502,11 +514,18 @@ public class RenderVehicleBase extends Render<EntityVehicleBase> {
 
     @Override
     public void doRender(EntityVehicleBase par1, double par2, double par4, double par6, float par8, float par9) {
+        VehicleFrustumCulling.BodyRenderDecision decision = VehicleFrustumCulling.evaluateBody(
+                par1, par9, par2, par4, par6);
+        VehicleRenderHooks.markSubmitted(par1, decision.getRenderStage());
+        TESRRenderStats.recordVehicleBody(decision);
+        if (decision.isVisible()) {
+            this.renderVehicleBase(par1, par2, par4, par6, par8, par9);
+        }
     }
 
     @Override
     public boolean shouldRender(EntityVehicleBase entity, ICamera camera, double camX, double camY, double camZ) {
-        return false;
+        return entity != null && !entity.isDead;
     }
 
     private void debugCollision(EntityVehicleBase vehicle) {

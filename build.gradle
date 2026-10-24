@@ -1,21 +1,24 @@
 buildscript {
     repositories {
-        maven { url = 'https://maven.minecraftforge.net' }
+        maven { url = 'https://maven.minecraftforge.net/' }
         mavenCentral()
     }
     dependencies {
-        // classpath("net.minecraftforge.gradle:ForgeGradle:6.0.24")
-        classpath 'net.minecraftforge.gradle:ForgeGradle:3.+'//なんかfixRTMバグったので戻した
+        classpath 'net.minecraftforge.gradle:ForgeGradle:3.0.197'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.32'
     }
 }
 
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
+apply plugin: 'kotlin'
 
-version = '2.5.2'
+apply from: rootProject.file('gradle/bundled-runtime.gradle')
+
+version = '1.0.0'
 group = 'jp.apple.rtm'
-archivesBaseName = 'AppleExtended-Added-forge1.12.2'
+archivesBaseName = 'AppleExtended-Modified'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -37,11 +40,36 @@ dependencies {
     minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2860'
 
     compileOnly fileTree(dir: 'libs', include: ['*.jar'])
-    compileOnly files('libs/core.jar')
 
-    implementation 'io.sigpipe:jbsdiff:1.0'
-    implementation 'org.sejda.imageio:webp-imageio:0.1.6'
-    implementation 'org.codehaus.groovy:groovy-jsr223:2.5.23'
+    bundledRuntime 'com.anatawa12.sai:sai:0.0.2'
+    bundledRuntime 'io.sigpipe:jbsdiff:1.0'
+    bundledRuntime 'org.sejda.imageio:webp-imageio:0.1.6'
+    bundledRuntime 'org.codehaus.groovy:groovy-jsr223:2.5.23'
+    bundledRuntime 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.4.32'
+}
+
+sourceSets {
+    main {
+        kotlin {
+            srcDirs = ['src/main/java']
+        }
+    }
+}
+
+tasks.withType(JavaCompile).all {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+    kotlinOptions {
+        jvmTarget = '1.8'
+        languageVersion = '1.4'
+        apiVersion = '1.4'
+    }
+}
+
+tasks.withType(Test).all {
+    enabled = false
 }
 
 jar {
@@ -56,11 +84,6 @@ jar {
         exclude 'mcmod.info'
     }
 
-    from {
-        configurations.runtimeClasspath.findAll {
-            it.name.contains('groovy')
-        }.collect { zipTree(it) }
-    }
 
     manifest {
         attributes([
@@ -81,19 +104,17 @@ jar {
 
 jar.finalizedBy('reobfJar')
 
-//テスト用に飛ばすためのやつ
-task copyJarToTest(type: Copy) {
-    dependsOn 'reobfJar'
-    from "build/libs"
-    into "/Users/S/Library/Application Support/PrismLauncher/instances/テスト/minecraft/mods"
-    include "${archivesBaseName}-${version}.jar"
+// Copying outside the project is opt-in and requires an explicit destination.
+['Test': 'testModsDir', 'Server': 'serverModsDir'].each { target, propertyName ->
+    tasks.create(name: "copyJarTo${target}", type: Copy) {
+        group = 'distribution'
+        description = "Copy the reobfuscated mod using -P${propertyName}=<mods-directory>."
+        dependsOn 'jar', 'reobfJar'
+        from { tasks.jar.archivePath }
+        into {
+            def destination = project.findProperty(propertyName)
+            if (!destination) throw new GradleException("Specify -P${propertyName}=<mods-directory> to copy the JAR.")
+            file(destination)
+        }
+    }
 }
-task copyJarToServer(type: Copy) {
-    dependsOn 'reobfJar'
-    from "build/libs"
-    into "/Users/S/Desktop/ApplepieServer/mods"
-    include "${archivesBaseName}-${version}.jar"
-}
-
-build.dependsOn copyJarToTest
-build.dependsOn copyJarToServer

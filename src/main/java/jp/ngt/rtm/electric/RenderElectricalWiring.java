@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.electric;
@@ -19,6 +17,9 @@ import jp.ngt.ngtlib.math.NGTMath;
 import jp.ngt.ngtlib.math.PooledVec3;
 import jp.ngt.ngtlib.math.Vec3;
 import jp.ngt.ngtlib.renderer.GLHelper;
+import jp.ngt.ngtlib.renderer.TESRRenderStats;
+import jp.ngt.ngtlib.renderer.RenderDiagnostics;
+import jp.ngt.ngtlib.renderer.TESRFrustumCulling;
 import jp.ngt.ngtlib.util.NGTUtilClient;
 import jp.ngt.rtm.electric.Connection.ConnectionType;
 import jp.ngt.rtm.modelpack.cfg.ConnectorConfig;
@@ -222,7 +223,36 @@ public class RenderElectricalWiring extends TileEntitySpecialRenderer<TileEntity
 
     @Override
     public void render(TileEntityConnectorBase tileentity, double d0, double d1, double d2, float f, int par9, float alpha) {
-        this.renderElectricalWiring(tileentity, d0, d1, d2, f);
+        long start = RenderDiagnostics.ENABLED ? System.nanoTime() : 0L;
+        boolean rendered = false;
+        boolean culled = false;
+        try {
+            if (this.canRender(tileentity, d0, d1, d2)) {
+                this.renderElectricalWiring(tileentity, d0, d1, d2, f);
+                rendered = true;
+            } else {
+                culled = this.canRender(tileentity);
+            }
+        } finally {
+            if (RenderDiagnostics.ENABLED) {
+                TESRRenderStats.recordWire(rendered, culled, System.nanoTime() - start);
+            }
+        }
+    }
+
+    private boolean canRender(TileEntityConnectorBase tileEntity) {
+        if (tileEntity == null || tileEntity.isInvalid() || tileEntity.getWorld() == null
+                || tileEntity.getWorld() != Minecraft.getMinecraft().world
+                || !tileEntity.getWorld().isBlockLoaded(tileEntity.getPos())) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean canRender(TileEntityConnectorBase tileEntity, double renderX, double renderY, double renderZ) {
+        return this.canRender(tileEntity)
+                && TESRFrustumCulling.isVisible(tileEntity.getRenderBoundingBox(), tileEntity.getPos(),
+                renderX, renderY, renderZ);
     }
 
     @Override

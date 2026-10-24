@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.ngtlib.renderer;
@@ -36,15 +34,27 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @SideOnly(Side.CLIENT)
 public final class GLHelper {
     public static final GLHelper INSTANCE = new GLHelper();
     public static final Locker LOCKER = new Locker();
 
-    private List<GLObject> activeGLLists = new ArrayList<>();
-    private List<GLObject> deleteGLLists = new ArrayList<>();
+    private final List<GLObject> activeGLLists = new ArrayList<>();
+    private final List<GLObject> deleteGLLists = new ArrayList<>();
+    private final Set<Integer> deleteShaderPrograms = new HashSet<>();
+    private final Set<Integer> deleteBuffers = new HashSet<>();
+    private final Set<Integer> activeShaderPrograms = new HashSet<>();
+    private long createdGLObjects;
+    private long releasedGLObjects;
+    private long createdDisplayLists;
+    private long releasedDisplayLists;
+    private long createdShaderPrograms;
+    private long releasedShaderPrograms;
+    private long releasedBuffers;
 
     private GLHelper() {
     }
@@ -66,67 +76,262 @@ public final class GLHelper {
 
     public static void initGLList() {
         LOCKER.lock();
-        if (!INSTANCE.activeGLLists.isEmpty()) {
-            for (GLObject dl : INSTANCE.activeGLLists) {
-                if (GL11.glIsList(dl.value)) {
-                    dl.setDelFlag(true);
+        try {
+            if (!INSTANCE.activeGLLists.isEmpty()) {
+                for (GLObject object : new ArrayList<>(INSTANCE.activeGLLists)) {
+                    enqueueDeleteLocked(object);
                 }
             }
-            INSTANCE.activeGLLists.clear();
-
+        } finally {
+            LOCKER.unlock();
         }
-        LOCKER.unlock();
     }
 
     public static void deleteGLList(GLObject par1) {
         LOCKER.lock();
-        if (par1 != null) {
-            INSTANCE.activeGLLists.remove(par1);
-            INSTANCE.deleteGLLists.add(par1);
-            par1.setDelFlag(true);
+        try {
+            enqueueDeleteLocked(par1);
+        } finally {
+            LOCKER.unlock();
         }
-        LOCKER.unlock();
+    }
+
+    private static void enqueueDeleteLocked(GLObject object) {
+        if (object == null || object.delFlag) {
+            return;
+        }
+
+        INSTANCE.activeGLLists.remove(object);
+        object.setDelFlag(true);
+        INSTANCE.deleteGLLists.add(object);
+    }
+
+    public static void registerVAOBuffer(GLObject vao, int bufferId) {
+        if (bufferId <= 0) {
+            return;
+        }
+
+        LOCKER.lock();
+        try {
+            if (vao instanceof VertexArrayObject && !vao.delFlag) {
+                ((VertexArrayObject) vao).addBuffer(bufferId);
+            } else {
+                INSTANCE.deleteBuffers.add(bufferId);
+            }
+        } finally {
+            LOCKER.unlock();
+        }
+    }
+
+    public static void deleteBuffer(int bufferId) {
+        if (bufferId <= 0) {
+            return;
+        }
+
+        LOCKER.lock();
+        try {
+            INSTANCE.deleteBuffers.add(bufferId);
+        } finally {
+            LOCKER.unlock();
+        }
+    }
+
+    public static void deleteShaderProgram(int program) {
+        if (program <= 0) {
+            return;
+        }
+
+        LOCKER.lock();
+        try {
+            INSTANCE.activeShaderPrograms.remove(program);
+            INSTANCE.deleteShaderPrograms.add(program);
+        } finally {
+            LOCKER.unlock();
+        }
+    }
+
+    public static void processPendingDeletes() {
+        List<GLObject> objects;
+        Set<Integer> programs;
+        Set<Integer> buffers;
+
+        LOCKER.lock();
+        try {
+            if (INSTANCE.deleteGLLists.isEmpty()
+                    && INSTANCE.deleteShaderPrograms.isEmpty()
+                    && INSTANCE.deleteBuffers.isEmpty()) {
+                return;
+            }
+
+            objects = new ArrayList<>(INSTANCE.deleteGLLists);
+            programs = new HashSet<>(INSTANCE.deleteShaderPrograms);
+            buffers = new HashSet<>(INSTANCE.deleteBuffers);
+            INSTANCE.deleteGLLists.clear();
+            INSTANCE.deleteShaderPrograms.clear();
+            INSTANCE.deleteBuffers.clear();
+        } finally {
+            LOCKER.unlock();
+        }
+
+        for (GLObject object : objects) {
+            object.releaseResource();
+        }
+        for (int program : programs) {
+            ARBShaderObjects.glDeleteObjectARB(program);
+        }
+        for (int buffer : buffers) {
+            GL15.glDeleteBuffers(buffer);
+        }
+
+        LOCKER.lock();
+        try {
+            INSTANCE.releasedGLObjects += objects.size();
+            for (GLObject object : objects) {
+                if (object instanceof DisplayList) {
+                    ++INSTANCE.releasedDisplayLists;
+                }
+            }
+            INSTANCE.releasedShaderPrograms += programs.size();
+            INSTANCE.releasedBuffers += buffers.size();
+        } finally {
+            LOCKER.unlock();
+        }
+
+        NGTLog.trace("[GLHelper] Released GL resources: objects=%d, programs=%d, buffers=%d",
+                objects.size(), programs.size(), buffers.size());
+    }
+
+    public static void logResourceStats() {
+        int activeObjects;
+        int activeLists = 0;
+        int activeVaos = 0;
+        int activeVbos = 0;
+        int activeVertexArrays = 0;
+        int pendingObjects;
+        int activePrograms;
+        int pendingPrograms;
+        int pendingBuffers;
+        long createdObjects;
+        long releasedObjects;
+        long createdLists;
+        long releasedLists;
+        long createdPrograms;
+        long releasedPrograms;
+        long releasedBufferCount;
+
+        LOCKER.lock();
+        try {
+            activeObjects = INSTANCE.activeGLLists.size();
+            for (GLObject object : INSTANCE.activeGLLists) {
+                if (object instanceof DisplayList) {
+                    ++activeLists;
+                } else if (object instanceof VertexArrayObject) {
+                    ++activeVaos;
+                } else if (object instanceof VBO || object.isVertexBufferObject()) {
+                    ++activeVbos;
+                } else if (object instanceof VertexArray || object instanceof VertexArray2) {
+                    ++activeVertexArrays;
+                }
+            }
+            pendingObjects = INSTANCE.deleteGLLists.size();
+            activePrograms = INSTANCE.activeShaderPrograms.size();
+            pendingPrograms = INSTANCE.deleteShaderPrograms.size();
+            pendingBuffers = INSTANCE.deleteBuffers.size();
+            createdObjects = INSTANCE.createdGLObjects;
+            releasedObjects = INSTANCE.releasedGLObjects;
+            createdLists = INSTANCE.createdDisplayLists;
+            releasedLists = INSTANCE.releasedDisplayLists;
+            createdPrograms = INSTANCE.createdShaderPrograms;
+            releasedPrograms = INSTANCE.releasedShaderPrograms;
+            releasedBufferCount = INSTANCE.releasedBuffers;
+        } finally {
+            LOCKER.unlock();
+        }
+
+        NGTLog.debug("[GLResources] active=%d (lists=%d, vao=%d, vbo=%d, va=%d) pending=%d "
+                        + "programs=%d pendingPrograms=%d pendingBuffers=%d "
+                        + "created=%d released=%d listsCreated=%d listsReleased=%d "
+                        + "programsCreated=%d programsReleased=%d buffersReleased=%d",
+                activeObjects, activeLists, activeVaos, activeVbos, activeVertexArrays, pendingObjects,
+                activePrograms, pendingPrograms, pendingBuffers,
+                createdObjects, releasedObjects, createdLists, releasedLists,
+                createdPrograms, releasedPrograms, releasedBufferCount);
+    }
+
+    private static void registerActiveLocked(GLObject object) {
+        INSTANCE.activeGLLists.add(object);
+        ++INSTANCE.createdGLObjects;
+        if (object instanceof DisplayList) {
+            ++INSTANCE.createdDisplayLists;
+        }
+    }
+
+    /** Registers a GL resource created by a specialized renderer for lifecycle tracking. */
+    public static <T extends GLObject> T registerGLObject(T object) {
+        if (object == null || object.value <= 0 || object.delFlag) {
+            throw new IllegalArgumentException("Invalid GL object");
+        }
+        LOCKER.lock();
+        try {
+            registerActiveLocked(object);
+            return object;
+        } finally {
+            LOCKER.unlock();
+        }
     }
 
     public static DisplayList generateGLList(@Nullable GLObject par1) {
         LOCKER.lock();
-        int value = 0;
-        if (par1 != null && par1.value > 0 && GL11.glIsList(par1.value)) {
-            value = par1.value;
-        } else {
-            value = GL11.glGenLists(1);
+        try {
+            if (par1 instanceof DisplayList && !par1.delFlag && par1.value > 0) {
+                if (GL11.glIsList(par1.value)) {
+                    return (DisplayList) par1;
+                }
+                enqueueDeleteLocked(par1);
+            }
+
+            DisplayList list = new DisplayList(GL11.glGenLists(1));
+            registerActiveLocked(list);
+            return list;
+        } finally {
+            LOCKER.unlock();
         }
-        DisplayList list = new DisplayList(value);
-        INSTANCE.activeGLLists.add(list);
-        LOCKER.unlock();
-        return list;
     }
 
     @Deprecated
     public static GLObject generateVAO(int size) {
         LOCKER.lock();
-        GLObject list = new GLObject(GL30.glGenVertexArrays());
-        INSTANCE.activeGLLists.add(list);
-        LOCKER.unlock();
-        return list;
+        try {
+            GLObject object = new VertexArrayObject(GL30.glGenVertexArrays());
+            registerActiveLocked(object);
+            return object;
+        } finally {
+            LOCKER.unlock();
+        }
     }
 
     static int nextVBOId = 1;
 
     public static VBO generateVBO(int size) {
         LOCKER.lock();
-        VBO obj = new VBO(++nextVBOId, size);
-        INSTANCE.activeGLLists.add(obj);
-        LOCKER.unlock();
-        return obj;
+        try {
+            VBO obj = new VBO(++nextVBOId, size);
+            registerActiveLocked(obj);
+            return obj;
+        } finally {
+            LOCKER.unlock();
+        }
     }
 
     public static VertexArray2 generateVA() {
         LOCKER.lock();
-        VertexArray2 obj = new VertexArray2(++nextVBOId);
-        INSTANCE.activeGLLists.add(obj);
-        LOCKER.unlock();
-        return obj;
+        try {
+            VertexArray2 obj = new VertexArray2(++nextVBOId);
+            registerActiveLocked(obj);
+            return obj;
+        } finally {
+            LOCKER.unlock();
+        }
     }
 
     public static boolean isValid(GLObject par1) {
@@ -142,12 +347,20 @@ public final class GLHelper {
 
     public static void startCompile(GLObject par1) {
         LOCKER.lock();
-        GL11.glNewList(par1.value, GL11.GL_COMPILE);
+        try {
+            GL11.glNewList(par1.value, GL11.GL_COMPILE);
+        } catch (RuntimeException | Error e) {
+            LOCKER.unlock();
+            throw e;
+        }
     }
 
     public static void endCompile() {
-        GL11.glEndList();
-        LOCKER.unlock();
+        try {
+            GL11.glEndList();
+        } finally {
+            LOCKER.unlock();
+        }
     }
 
     public static void callList(GLObject par1) {
@@ -204,33 +417,70 @@ public final class GLHelper {
     }
 
     public static int getShaderProgram(String vsh, String fsh) {
-        int vertShader = createShader(vsh, ARBVertexShader.GL_VERTEX_SHADER_ARB);
-        int fragShader = createShader(fsh, ARBFragmentShader.GL_FRAGMENT_SHADER_ARB);
-        if (vertShader == 0 || fragShader == 0) {
-            return -1;
+        int vertShader = 0;
+        int fragShader = 0;
+        int program = 0;
+        boolean vertAttached = false;
+        boolean fragAttached = false;
+        boolean success = false;
+
+        try {
+            vertShader = createShader(vsh, ARBVertexShader.GL_VERTEX_SHADER_ARB);
+            fragShader = createShader(fsh, ARBFragmentShader.GL_FRAGMENT_SHADER_ARB);
+            if (vertShader == 0 || fragShader == 0) {
+                return -1;
+            }
+
+            program = ARBShaderObjects.glCreateProgramObjectARB();
+            if (program == 0) {
+                return -1;
+            }
+
+            ARBShaderObjects.glAttachObjectARB(program, vertShader);
+            vertAttached = true;
+            ARBShaderObjects.glAttachObjectARB(program, fragShader);
+            fragAttached = true;
+
+            ARBShaderObjects.glLinkProgramARB(program);
+            if (ARBShaderObjects.glGetObjectParameteriARB(program, ARBShaderObjects.GL_OBJECT_LINK_STATUS_ARB) == GL11.GL_FALSE) {
+                NGTLog.debug(getShaderErrorLog(program));
+                return -1;
+            }
+
+            ARBShaderObjects.glValidateProgramARB(program);
+            if (ARBShaderObjects.glGetObjectParameteriARB(program, ARBShaderObjects.GL_OBJECT_VALIDATE_STATUS_ARB) == GL11.GL_FALSE) {
+                NGTLog.debug(getShaderErrorLog(program));
+                return -1;
+            }
+
+            success = true;
+            LOCKER.lock();
+            try {
+                INSTANCE.activeShaderPrograms.add(program);
+                ++INSTANCE.createdShaderPrograms;
+            } finally {
+                LOCKER.unlock();
+            }
+            return program;
+        } finally {
+            if (program > 0) {
+                if (vertAttached) {
+                    ARBShaderObjects.glDetachObjectARB(program, vertShader);
+                }
+                if (fragAttached) {
+                    ARBShaderObjects.glDetachObjectARB(program, fragShader);
+                }
+            }
+            if (vertShader > 0) {
+                ARBShaderObjects.glDeleteObjectARB(vertShader);
+            }
+            if (fragShader > 0) {
+                ARBShaderObjects.glDeleteObjectARB(fragShader);
+            }
+            if (!success && program > 0) {
+                ARBShaderObjects.glDeleteObjectARB(program);
+            }
         }
-
-        int program = ARBShaderObjects.glCreateProgramObjectARB();
-        if (program == 0) {
-            return -1;
-        }
-
-        ARBShaderObjects.glAttachObjectARB(program, vertShader);
-        ARBShaderObjects.glAttachObjectARB(program, fragShader);
-
-        ARBShaderObjects.glLinkProgramARB(program);
-        if (ARBShaderObjects.glGetObjectParameteriARB(program, ARBShaderObjects.GL_OBJECT_LINK_STATUS_ARB) == GL11.GL_FALSE) {
-            NGTLog.debug(getShaderErrorLog(program));
-            return -1;
-        }
-
-        ARBShaderObjects.glValidateProgramARB(program);
-        if (ARBShaderObjects.glGetObjectParameteriARB(program, ARBShaderObjects.GL_OBJECT_VALIDATE_STATUS_ARB) == GL11.GL_FALSE) {
-            NGTLog.debug(getShaderErrorLog(program));
-            return -1;
-        }
-
-        return program;
     }
 
     private static int createShader(String shaderObj, int shaderType) {

@@ -1,19 +1,18 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.train;
 
+import jp.ngt.ngtlib.io.NGTLog;
 import jp.ngt.ngtlib.math.NGTMath;
 import jp.ngt.ngtlib.math.PooledVec3;
 import jp.ngt.ngtlib.math.Vec3;
@@ -88,7 +87,7 @@ public final class EntityBogie extends Entity implements Lockable, jp.ngt.rtm.wo
 
     public EntityBogie(World world) {
         super(world);
-        this.ignoreFrustumCheck = true;
+        this.ignoreFrustumCheck = false;
         this.preventEntitySpawning = true;
         this.setBogieSize(EntityTrainBase.TRAIN_WIDTH, EntityTrainBase.TRAIN_HEIGHT);
     }
@@ -327,8 +326,17 @@ public final class EntityBogie extends Entity implements Lockable, jp.ngt.rtm.wo
 
     @Override
     public final void onUpdate() {
+        if (this.world.isRemote && !this.isCurrentClientInstance()) {
+            this.discardClientDuplicate();
+            return;
+        }
+
         if (!this.world.isRemote && !this.tracked) {
             this.tracked = VehicleTrackerEntry.trackingVehicle(this);
+        }
+
+        if (this.world.isRemote) {
+            this.repairTrainBogieStateOnClient();
         }
 
         if (!this.world.isRemote) {
@@ -346,6 +354,53 @@ public final class EntityBogie extends Entity implements Lockable, jp.ngt.rtm.wo
                 this.setDead();
             }
         }
+    }
+
+    private void repairTrainBogieStateOnClient() {
+        if (this.isDead) {
+            return;
+        }
+
+        int bogieIndex = this.getBogieId();
+        if (bogieIndex < 0 || bogieIndex > 1) {
+            return;
+        }
+
+        EntityTrainBase train = this.getTrain();
+        if (train == null || train.isDead) {
+            return;
+        }
+
+        int linkedEntityId = train.getBogieEntityId(bogieIndex);
+        if (linkedEntityId != this.getEntityId()) {
+            Entity linkedEntity = this.world.getEntityByID(linkedEntityId);
+            boolean hasValidLink = false;
+            if (linkedEntity instanceof EntityBogie && !linkedEntity.isDead) {
+                EntityBogie linkedBogie = (EntityBogie) linkedEntity;
+                int linkedTrainId = linkedBogie.getDataManager().get(TRAIN_ID);
+                hasValidLink = linkedBogie.getBogieId() == bogieIndex
+                        && linkedTrainId == train.getEntityId();
+            }
+
+            if (!hasValidLink) {
+                train.setBogieEntityId(bogieIndex, this.getEntityId());
+                NGTLog.debug("[BogieLinkRepaired] train=%d bogieIndex=%d oldBogie=%d newBogie=%d",
+                        train.getEntityId(), bogieIndex, linkedEntityId, this.getEntityId());
+            }
+        }
+
+        this.updatePositionFromTrain(train, bogieIndex);
+    }
+
+    private void updatePositionFromTrain(EntityTrainBase train, int bogieIndex) {
+        float[][] pos = train.getResourceState().getResourceSet().getConfig().getBogiePos();
+        Vec3 bogiePos = PooledVec3.create(pos[bogieIndex][0], pos[bogieIndex][1], pos[bogieIndex][2]);
+        bogiePos = bogiePos.rotateAroundX(train.rotationPitch);
+        bogiePos = bogiePos.rotateAroundY(train.rotationYaw);
+        this.setPosition(
+                train.posX + bogiePos.getX(),
+                train.posY + bogiePos.getY(),
+                train.posZ + bogiePos.getZ());
     }
 
     public void onBogieUpdate() {
@@ -372,6 +427,17 @@ public final class EntityBogie extends Entity implements Lockable, jp.ngt.rtm.wo
         }
     }
 
+    public boolean isCurrentClientInstance() {
+        return !this.isDead
+                && (!this.world.isRemote || this.world.getEntityByID(this.getEntityId()) == this);
+    }
+
+    public void discardClientDuplicate() {
+        if (this.world.isRemote && this.world.getEntityByID(this.getEntityId()) != this) {
+            super.setDead();
+        }
+    }
+
     @SideOnly(Side.CLIENT)
     protected void updatePosAndRotationClient() {
         this.prevPosX = this.posX;
@@ -388,15 +454,7 @@ public final class EntityBogie extends Entity implements Lockable, jp.ngt.rtm.wo
 
         EntityTrainBase train = this.getTrain();
         if (train != null) {
-            float[][] pos = train.getResourceState().getResourceSet().getConfig().getBogiePos();
-            int bogieIndex = this.getBogieId();
-            Vec3 v31 = PooledVec3.create(pos[bogieIndex][0], pos[bogieIndex][1], pos[bogieIndex][2]);
-            v31 = v31.rotateAroundX(train.rotationPitch);
-            v31 = v31.rotateAroundY(train.rotationYaw);
-            double newX = train.posX + v31.getX();
-            double newY = train.posY + v31.getY();
-            double newZ = train.posZ + v31.getZ();
-            this.setPosition(newX, newY, newZ);
+            this.updatePositionFromTrain(train, this.getBogieId());
         }
 
         this.setRotation(this.rotationYaw, this.rotationPitch);
@@ -579,8 +637,16 @@ public final class EntityBogie extends Entity implements Lockable, jp.ngt.rtm.wo
     }
 
     public EntityTrainBase getTrain() {
+        int id = this.getDataManager().get(TRAIN_ID);
+        if (this.world.isRemote) {
+            Entity entity = this.world.getEntityByID(id);
+            this.parentTrain = entity instanceof EntityTrainBase && !entity.isDead
+                    ? (EntityTrainBase) entity
+                    : null;
+            return this.parentTrain;
+        }
+
         if (this.parentTrain == null || this.parentTrain.isDead) {
-            int id = this.getDataManager().get(TRAIN_ID);
             Entity entity = this.world.getEntityByID(id);
             if (entity instanceof EntityTrainBase) {
                 this.parentTrain = (EntityTrainBase) entity;

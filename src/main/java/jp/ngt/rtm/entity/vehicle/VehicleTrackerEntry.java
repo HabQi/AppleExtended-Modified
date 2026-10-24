@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.vehicle;
@@ -28,7 +26,6 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.Packet;
 import net.minecraft.network.datasync.EntityDataManager;
-import net.minecraft.network.play.server.SPacketEntityAttach;
 import net.minecraft.network.play.server.SPacketEntityMetadata;
 import net.minecraft.network.play.server.SPacketSetPassengers;
 import net.minecraft.world.WorldServer;
@@ -99,7 +96,10 @@ public final class VehicleTrackerEntry extends EntityTrackerEntry {
 
         if (this.updateCounter % this.updateFrequency == 0) {
             if (this.trackedEntity.getRidingEntity() == null) {
-                RTMCore.NETWORK_WRAPPER.sendToAll(new PacketVehicleMovement(this.trackedEntity, false));
+                PacketVehicleMovement movement = new PacketVehicleMovement(this.trackedEntity, false);
+                for (EntityPlayerMP player : this.trackingPlayers) {
+                    RTMCore.NETWORK_WRAPPER.sendTo(movement, player);
+                }
 
                 if (this.isTrain) {
                     ;
@@ -171,17 +171,28 @@ public final class VehicleTrackerEntry extends EntityTrackerEntry {
                         par1.connection.sendPacket(new SPacketEntityMetadata(this.trackedEntity.getEntityId(), this.trackedEntity.getDataManager(), true));
                     }
 
-                    PacketNBT.sendToClient(this.trackedEntity, par1);
-
-                    if (this.trackedEntity.getRidingEntity() != null) {
-                        par1.connection.sendPacket(new SPacketEntityAttach(this.trackedEntity, this.trackedEntity.getRidingEntity()));
+                    // Vehicles send their state from addTrackingPlayer; bogies still
+                    // rely on this tracker because they do not implement that hook.
+                    if (!(this.trackedEntity instanceof EntityVehicleBase)) {
+                        PacketNBT.sendToClient(this.trackedEntity, par1);
                     }
 
+                    if (!this.trackedEntity.getPassengers().isEmpty()) {
+                        par1.connection.sendPacket(new SPacketSetPassengers(this.trackedEntity));
+                    }
+
+                    if (this.trackedEntity.getRidingEntity() != null) {
+                        par1.connection.sendPacket(new SPacketSetPassengers(this.trackedEntity.getRidingEntity()));
+                    }
+
+                    this.trackedEntity.addTrackingPlayer(par1);
+                    par1.addEntity(this.trackedEntity);
                     ForgeEventFactory.onStartEntityTracking(this.trackedEntity, par1);
                 }
             } else if (this.trackingPlayers.contains(par1)) {
-                this.trackingPlayers.remove(par1);
+                this.trackedEntity.removeTrackingPlayer(par1);
                 par1.removeEntity(this.trackedEntity);
+                this.trackingPlayers.remove(par1);
                 ForgeEventFactory.onStopEntityTracking(trackedEntity, par1);
             }
         }

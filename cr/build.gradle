@@ -4,13 +4,17 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:3.+'
+        classpath 'net.minecraftforge.gradle:ForgeGradle:3.0.197'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.32'
     }
 }
 
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
+apply plugin: 'kotlin'
+
+apply from: rootProject.file('gradle/bundled-runtime.gradle')
 
 version = '2.4.4'
 group = 'jp.apple.rtm'
@@ -53,6 +57,9 @@ sourceSets {
         java {
             srcDirs = [file("${project.buildDir}/src/merged/java")]
         }
+        kotlin {
+            srcDirs = [file("${project.buildDir}/src/merged/java")]
+        }
         resources {
             srcDirs = [file("${project.buildDir}/src/merged/resources")]
         }
@@ -60,6 +67,9 @@ sourceSets {
 }
 
 tasks.named('compileJava') {
+    dependsOn mergeSources
+}
+tasks.named('compileKotlin') {
     dependsOn mergeSources
 }
 tasks.named('processResources') {
@@ -84,10 +94,11 @@ dependencies {
     minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2860'
 
     compileOnly fileTree(dir: "${rootProject.projectDir}/libs", include: ['*.jar'])
-    compileOnly files("${rootProject.projectDir}/libs/core.jar")
 
-    implementation 'io.sigpipe:jbsdiff:1.0'
-    implementation 'org.sejda.imageio:webp-imageio:0.1.6'
+    bundledRuntime 'com.anatawa12.sai:sai:0.0.2'
+    bundledRuntime 'io.sigpipe:jbsdiff:1.0'
+    bundledRuntime 'org.sejda.imageio:webp-imageio:0.1.6'
+    bundledRuntime 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.4.32'
 
     runtimeOnly "org.graalvm.js:js-scriptengine:${graalJsVersion}"
     runtimeOnly "org.graalvm.polyglot:js:${graalJsVersion}"
@@ -95,7 +106,19 @@ dependencies {
     graalJsRuntime "org.graalvm.js:js-scriptengine:${graalJsVersion}"
     graalJsRuntime "org.graalvm.polyglot:js:${graalJsVersion}"
 
-    implementation 'org.codehaus.groovy:groovy-jsr223:2.5.23'
+    bundledRuntime 'org.codehaus.groovy:groovy-jsr223:2.5.23'
+}
+
+tasks.withType(JavaCompile).all {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+    kotlinOptions {
+        jvmTarget = '1.8'
+        languageVersion = '1.4'
+        apiVersion = '1.4'
+    }
 }
 
 jar {
@@ -109,6 +132,7 @@ jar {
         exclude 'META-INF/MANIFEST.MF'
         exclude 'mcmod.info'
     }
+
 
     manifest {
         attributes([
@@ -176,7 +200,11 @@ task generateGraalServiceDescriptors {
     }
 }
 
+registerDependencyNotices('collectGraalNotices', configurations.graalJsRuntime)
+
 task graalLibsJar(type: Jar) {
+    dependsOn collectGraalNotices
+    from(file("$buildDir/generated/collectGraalNotices")) { into 'META-INF/licenses/dependencies' }
     dependsOn generateGraalServiceDescriptors
 
     archiveBaseName = graalLibsBaseName
@@ -217,10 +245,13 @@ task copyJarToTest(type: Copy) {
     dependsOn 'reobfJar'
     dependsOn 'graalLibsJar'
     from "build/libs"
-    into "/Users/S/Library/Application Support/PrismLauncher/instances/CleanRoom/minecraft/mods"
+    into {
+        def destination = project.findProperty('testModsDir')
+        if (!destination) throw new GradleException('Specify -PtestModsDir=<mods-directory> to copy the JAR.')
+        file(destination)
+    }
     include "${archivesBaseName}-${version}.jar"
     include "${graalLibsBaseName}-${version}.jar"
 }
 
-build.dependsOn copyJarToTest
 build.dependsOn graalLibsJar

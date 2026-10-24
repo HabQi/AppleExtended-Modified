@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.apple;
@@ -28,6 +26,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.network.NetworkCheckHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import jp.apple.block.BlockTrainModel;
@@ -49,6 +48,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.io.File;
+import java.util.Map;
 
 import static jp.apple.artpe.ARTPECore.trainPlacerBlock;
 
@@ -56,7 +56,7 @@ import static jp.apple.artpe.ARTPECore.trainPlacerBlock;
 public class AppleLib {
     public static final String MODID = "applelib";
     public static final String NAME = "AppleLib";
-    public static final String VERSION = "2.5.2";
+    public static final String VERSION = "1.0.0";
     public static final Logger LOGGER = LogManager.getLogger(NAME);
     public static final CreativeTabs tabAppleLib = new CreativeTabs("applelib_tab") {
         @Override
@@ -73,6 +73,11 @@ public class AppleLib {
     )
     public static IProxy proxy;
 
+    @NetworkCheckHandler
+    public boolean checkRemoteVersion(Map<String, String> remoteVersions, Side remoteSide) {
+        return VERSION.equals(remoteVersions.get(MODID));
+    }
+
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         File mcRoot = event.getModConfigurationDirectory().getParentFile();
@@ -88,6 +93,7 @@ public class AppleLib {
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
         MinecraftForge.EVENT_BUS.register(new jp.apple.train.TrainTickHandler());
+        MinecraftForge.EVENT_BUS.register(new jp.apple.train.TrainPassengerHandler());
         proxy.init(event);
     }
 

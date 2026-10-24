@@ -1,20 +1,16 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.apple.replaymod.compat;
-
-import com.replaymod.replay.ReplayModReplay;
 import jp.ngt.rtm.entity.train.EntityTrainBase;
 import jp.ngt.rtm.entity.train.parts.EntityCargoWithModel;
 import jp.ngt.rtm.modelpack.IResourceSelector;
@@ -52,7 +48,9 @@ public class ReplaySyncManager {
     public static boolean isReplayActive() {
         if (!isReplayModLoaded) return false;
         try {
-            return ReplayModReplay.instance.getReplayHandler() != null;
+            Class<?> replayModReplay = Class.forName("com.replaymod.replay.ReplayModReplay");
+            Object instance = replayModReplay.getField("instance").get(null);
+            return replayModReplay.getMethod("getReplayHandler").invoke(instance) != null;
         } catch (Throwable e) {
             return false;
         }
@@ -170,8 +168,6 @@ public class ReplaySyncManager {
                 forceRegisterModelToSmpMap(state.type, name);
 
                 state.setResourceName(name);
-                tile.shouldRerenderRail = true;
-                tile.shouldRerenderBlock = true;
             }
         }
     }

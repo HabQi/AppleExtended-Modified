@@ -1,19 +1,19 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.event;
 
+import jp.apple.train.PassengerPose;
+import jp.apple.train.PassengerPoseClient;
 import jp.ngt.ngtlib.io.NGTLog;
 import jp.ngt.ngtlib.util.NGTUtil;
 import jp.ngt.ngtlib.util.NGTUtilClient;
@@ -21,6 +21,7 @@ import jp.ngt.rtm.RTMCore;
 import jp.ngt.rtm.entity.npc.macro.MacroRecorder;
 import jp.ngt.rtm.entity.train.EntityTrainBase;
 import jp.ngt.rtm.entity.train.parts.EntityArtillery;
+import jp.ngt.rtm.entity.train.parts.EntityTrainWalkableFloor;
 import jp.ngt.rtm.entity.train.util.EnumNotch;
 import jp.ngt.rtm.entity.train.util.TrainState;
 import jp.ngt.rtm.entity.train.util.TrainState.TrainStateType;
@@ -30,6 +31,7 @@ import jp.ngt.rtm.entity.vehicle.EntityVehicleBase;
 import jp.ngt.rtm.modelpack.cfg.TrainConfig;
 import jp.ngt.rtm.modelpack.modelset.ModelSetTrain;
 import jp.ngt.rtm.network.PacketRTMKey;
+import jp.ngt.rtm.network.PacketPassengerPoseRequest;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
@@ -49,7 +51,12 @@ public final class RTMKeyHandlerClient {
 
     private int countPressingBackTicks = 0;
     private int countPressingForwardTicks = 0;
+    private boolean poseJumpWasDown;
+    private int poseRaiseHeldTicks;
+    private int poseLowerHeldTicks;
     private static final int WS_REPEAT_START_TICKS = 10;
+    private static final int POSE_HEIGHT_REPEAT_DELAY_TICKS = 10;
+    private static final int POSE_HEIGHT_REPEAT_INTERVAL_TICKS = 2;
 
     private static final String CATG_RTM = "key.rtm.category";
     public static final RTMKeyHandlerClient INSTANCE = new RTMKeyHandlerClient();
@@ -61,6 +68,12 @@ public final class RTMKeyHandlerClient {
     public static final KeyBinding KEY_CHIME_PREV = new KeyBinding("key.rtm.chime_prev", Keyboard.KEY_LEFT, CATG_RTM);
     public static final KeyBinding KEY_ROLE_UP = new KeyBinding("key.rtm.role_up", Keyboard.KEY_UP, CATG_RTM);
     public static final KeyBinding KEY_ROLE_DOWN = new KeyBinding("key.rtm.role_down", Keyboard.KEY_DOWN, CATG_RTM);
+    public static final KeyBinding KEY_POSE_SIT = new KeyBinding("key.rtm.pose_sit", Keyboard.KEY_G, CATG_RTM);
+    public static final KeyBinding KEY_POSE_LIE = new KeyBinding("key.rtm.pose_lie", Keyboard.KEY_H, CATG_RTM);
+    public static final KeyBinding KEY_POSE_RAISE = new KeyBinding(
+            "key.rtm.pose_raise", Keyboard.KEY_EQUALS, CATG_RTM);
+    public static final KeyBinding KEY_POSE_LOWER = new KeyBinding(
+            "key.rtm.pose_lower", Keyboard.KEY_MINUS, CATG_RTM);
 
     private RTMKeyHandlerClient() {
     }
@@ -74,12 +87,34 @@ public final class RTMKeyHandlerClient {
         ClientRegistry.registerKeyBinding(KEY_CHIME_PREV);
         ClientRegistry.registerKeyBinding(KEY_ROLE_UP);
         ClientRegistry.registerKeyBinding(KEY_ROLE_DOWN);
+        ClientRegistry.registerKeyBinding(KEY_POSE_SIT);
+        ClientRegistry.registerKeyBinding(KEY_POSE_LIE);
+        ClientRegistry.registerKeyBinding(KEY_POSE_RAISE);
+        ClientRegistry.registerKeyBinding(KEY_POSE_LOWER);
     }
 
     public void onTickStart() {
         Minecraft mc = NGTUtilClient.getMinecraft();
         EntityPlayer player = mc.player;
-        
+        boolean poseSitPressed = KEY_POSE_SIT.isPressed();
+        boolean poseLiePressed = KEY_POSE_LIE.isPressed();
+        boolean poseJumpDown = mc.gameSettings.keyBindJump.isKeyDown();
+        if (player != null && player.getRidingEntity() instanceof EntityTrainWalkableFloor) {
+            PassengerPose requestedPose = poseJumpDown && !this.poseJumpWasDown
+                    ? PassengerPose.STANDING
+                    : poseSitPressed ? PassengerPose.SITTING
+                    : poseLiePressed ? PassengerPose.LYING : null;
+            if (requestedPose != null) {
+                RTMCore.NETWORK_WRAPPER.sendToServer(new PacketPassengerPoseRequest(requestedPose));
+            }
+        }
+        this.updatePoseHeightKeys(player);
+        this.poseJumpWasDown = poseJumpDown;
+
+        if (player == null) {
+            return;
+        }
+
         boolean keyBindBackPressed = mc.gameSettings.keyBindBack.isPressed();
         boolean keyBindForwardPressed = mc.gameSettings.keyBindForward.isPressed();
 
@@ -142,6 +177,39 @@ public final class RTMKeyHandlerClient {
     public void onTickEnd() {
     }
 
+    private void updatePoseHeightKeys(EntityPlayer player) {
+        boolean canAdjust = player != null
+                && player.getRidingEntity() instanceof EntityTrainWalkableFloor
+                && PassengerPoseClient.getPose(player) == PassengerPose.LYING;
+        boolean raiseDown = KEY_POSE_RAISE.isKeyDown();
+        boolean lowerDown = KEY_POSE_LOWER.isKeyDown();
+        if (!canAdjust || raiseDown == lowerDown) {
+            this.poseRaiseHeldTicks = 0;
+            this.poseLowerHeldTicks = 0;
+            return;
+        }
+
+        if (raiseDown) {
+            this.poseLowerHeldTicks = 0;
+            this.poseRaiseHeldTicks = this.updatePoseHeightKey(this.poseRaiseHeldTicks, 1);
+        } else {
+            this.poseRaiseHeldTicks = 0;
+            this.poseLowerHeldTicks = this.updatePoseHeightKey(this.poseLowerHeldTicks, -1);
+        }
+    }
+
+    private int updatePoseHeightKey(int heldTicks, int delta) {
+        int nextHeldTicks = heldTicks + 1;
+        boolean initialPress = nextHeldTicks == 1;
+        boolean repeating = nextHeldTicks > POSE_HEIGHT_REPEAT_DELAY_TICKS
+                && (nextHeldTicks - POSE_HEIGHT_REPEAT_DELAY_TICKS - 1)
+                % POSE_HEIGHT_REPEAT_INTERVAL_TICKS == 0;
+        if (initialPress || repeating) {
+            RTMCore.NETWORK_WRAPPER.sendToServer(PacketPassengerPoseRequest.adjustHeight(delta));
+        }
+        return nextHeldTicks;
+    }
+
     @SubscribeEvent
     public void onInputUpdateEvent(InputUpdateEvent event) {
         EntityPlayer player = event.getEntityPlayer();
@@ -155,6 +223,9 @@ public final class RTMKeyHandlerClient {
     public void keyDown(InputEvent event) {
         Minecraft mc = NGTUtilClient.getMinecraft();
         EntityPlayer player = mc.player;
+        if (player == null) {
+            return;
+        }
         Entity riding = player.getRidingEntity();
 
         if (mc.gameSettings.keyBindJump.isKeyDown()) {

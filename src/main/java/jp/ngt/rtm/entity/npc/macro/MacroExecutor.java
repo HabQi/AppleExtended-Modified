@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.npc.macro;
@@ -100,7 +98,7 @@ public class MacroExecutor {
 
     private void execHorn(EntityTrainBase train) {
         TrainConfig cfg = train.getResourceState().getResourceSet().getConfig();
-        RTMCore.proxy.playSound(train, cfg.sound_Horn, 1.0F, 1.0F);
+        RTMCore.proxy.playHornSound(train, cfg.sound_Horn, 1.0F, 1.0F);
     }
 
     private void execChime(EntityTrainBase train, String name) {

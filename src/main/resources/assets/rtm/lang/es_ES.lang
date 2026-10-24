@@ -172,6 +172,10 @@ achievement.accidentsWillHappen.desc=Rebota un mob o choca con un Poste de Choqu
 death.attack.train=%1$s fue atropellado por el tren!
 death.attack.nuclear=%1$s fue abarcado por las llamas nucleares!
 //TRADUCIDO EN MÉXICO POR JESUS FERNANDO "KWES!-Link" ALMANZA LOREDO
+key.rtm.pose_sit=Sentarse dentro del tren
+key.rtm.pose_lie=Tumbarse dentro del tren
+key.rtm.pose_raise=Elevar postura tumbada
+key.rtm.pose_lower=Bajar postura tumbada
 //TRANSLATED IN MEXICO BY JESUS FERNANDO "KWES!-Link" ALMANZA LOREDO
 //メキシコに翻訳アルマンザロデド「カウエス!-リンク」イエスフェルナンド
 //2015年04月05日　11時　05分　03秒

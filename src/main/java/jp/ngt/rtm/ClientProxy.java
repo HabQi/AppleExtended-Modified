@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm;
@@ -46,6 +44,7 @@ import jp.ngt.rtm.rail.TileEntityLargeRailCore;
 import jp.ngt.rtm.sound.MovingSoundMaker;
 import jp.ngt.rtm.sound.SoundUpdaterTrain;
 import jp.ngt.rtm.sound.SoundUpdaterVehicle;
+import jp.apple.train.PassengerPoseClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.ModelBase;
 import net.minecraft.entity.Entity;
@@ -88,6 +87,7 @@ public class ClientProxy extends CommonProxy {
         RTMItem.initClient();
 
         MinecraftForge.EVENT_BUS.register(new RTMEventHandlerClient(Minecraft.getMinecraft()));
+        MinecraftForge.EVENT_BUS.register(PassengerPoseClient.INSTANCE);
 
         RTMKeyHandlerClient.init();
     }
@@ -222,6 +222,23 @@ public class ClientProxy extends CommonProxy {
 
         if (NGTUtil.isServer()) {
             super.playSound(entity, sound, vol, pitch);
+        } else {
+            MovingSoundCustom ms = MovingSoundMaker.create(entity, sound, false);
+            if (ms != null) {
+                this.playSound(ms, vol, pitch);
+            }
+        }
+    }
+
+    @Override
+    public void playHornSound(Entity entity, String sound, float vol, float pitch) {
+        if (sound == null) {
+            NGTLog.debug("Proxy:Sound is null");
+            return;
+        }
+
+        if (NGTUtil.isServer()) {
+            super.playHornSound(entity, sound, vol, pitch);
         } else {
             MovingSoundCustom ms = MovingSoundMaker.create(entity, sound, false);
             if (ms != null) {

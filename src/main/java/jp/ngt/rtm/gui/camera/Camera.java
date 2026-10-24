@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.gui.camera;
@@ -120,11 +118,14 @@ public final class Camera {
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);*/
 
+        GLHelper.deleteShaderProgram(this.dofShader);
+        this.dofShader = -1;
         try {
             String vsh = NGTText.getText(new ResourceLocation("rtm", "shaders/dof.vsh"), true);
             String fsh = NGTText.getText(new ResourceLocation("rtm", "shaders/dof.fsh"), true);
             this.dofShader = GLHelper.getShaderProgram(vsh, fsh);
         } catch (IOException e) {
+            this.dofShader = -1;
             e.printStackTrace();
         }
 
@@ -249,6 +250,8 @@ public final class Camera {
             this.mcTexRendered = false;
             this.tickCount = 0;
         }
+        GLHelper.deleteShaderProgram(this.dofShader);
+        this.dofShader = -1;
     }
 
     public void render(Minecraft mc, RenderGameOverlayEvent event, int guiW, int guiH) {

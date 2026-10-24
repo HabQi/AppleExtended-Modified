@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.train.util;
@@ -20,7 +18,6 @@ import jp.ngt.ngtlib.math.PooledVec3;
 import jp.ngt.ngtlib.math.Vec3;
 import jp.ngt.rtm.entity.train.EntityBogie;
 import jp.ngt.rtm.entity.train.EntityTrainBase;
-import jp.ngt.rtm.entity.train.util.TrainState.TrainStateType;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
@@ -29,22 +26,26 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 public final class BogieController {
     private EntityBogie[] bogies = new EntityBogie[2];
-    private int tickCount;
 
     public EntityBogie getBogie(EntityTrainBase train, int bogieId) {
-        if (this.bogies[bogieId] == null) {
-            if (train.world.isRemote) {
-                this.setupBogieOnClient(train, bogieId);
-            } else {
-                this.setupBogieOnServer(train, bogieId);
-            }
+        if (train.world.isRemote) {
+            this.setupBogieOnClient(train, bogieId);
+        } else if (this.bogies[bogieId] == null) {
+            this.setupBogieOnServer(train, bogieId);
         }
         return this.bogies[bogieId];
     }
 
     private EntityBogie getBogie(EntityTrainBase train, boolean isFront) {
-        boolean b0 = this.getBogie(train, 0).isFront();
-        return !(b0 ^ isFront) ? this.getBogie(train, 0) : this.getBogie(train, 1);
+        if (train == null) {
+            return null;
+        }
+        EntityBogie first = this.getBogie(train, 0);
+        if (first == null) {
+            return null;
+        }
+        boolean b0 = first.isFront();
+        return !(b0 ^ isFront) ? first : this.getBogie(train, 1);
     }
 
     /**
@@ -53,10 +54,30 @@ public final class BogieController {
     @SideOnly(Side.CLIENT)
     private boolean setupBogieOnClient(EntityTrainBase train, int bogieId) {
         Entity entity = train.world.getEntityByID(train.getBogieEntityId(bogieId));
-        if (entity instanceof EntityBogie) {
-            this.bogies[bogieId] = (EntityBogie) entity;
+        if (entity instanceof EntityBogie && !entity.isDead) {
+            EntityBogie currentBogie = (EntityBogie) entity;
+            int trainId = currentBogie.getDataManager().get(EntityBogie.TRAIN_ID);
+            if (currentBogie.getBogieId() != bogieId || trainId != train.getEntityId()) {
+                this.bogies[bogieId] = null;
+                return false;
+            }
+
+            EntityBogie cachedBogie = this.bogies[bogieId];
+            if (cachedBogie != null && cachedBogie != currentBogie) {
+                boolean oldDead = cachedBogie.isDead;
+                int oldIdentity = System.identityHashCode(cachedBogie);
+                int newIdentity = System.identityHashCode(currentBogie);
+                cachedBogie.discardClientDuplicate();
+                NGTLog.debug(
+                        "[BogieCacheRefreshed] train=%d bogieIndex=%d oldBogie=%d oldIdentity=%d oldDead=%s oldDeadAfterDiscard=%s newBogie=%d newIdentity=%d",
+                        train.getEntityId(), bogieId, cachedBogie.getEntityId(), oldIdentity, oldDead,
+                        cachedBogie.isDead, currentBogie.getEntityId(), newIdentity);
+            }
+            this.bogies[bogieId] = currentBogie;
             return true;
         }
+
+        this.bogies[bogieId] = null;
         return false;
     }
 
@@ -75,10 +96,10 @@ public final class BogieController {
         if (train.world.isBlockLoaded(new BlockPos(x, y, z))) {
             EntityBogie bogie = new EntityBogie(train.world, (byte) bogieId, train);
             bogie.setPositionAndRotation(x, y, z, bogieYaw, 0.0F);
+            boolean isFront = (train.getTrainDirection() == bogieId);
+            bogie.setFront(isFront);
+            bogie.setTrain(train);
             if (train.world.spawnEntity(bogie)) {
-                boolean isFront = (train.getTrainDirection() == bogieId);
-                bogie.setFront(isFront);
-                bogie.setTrain(train);
                 train.setBogieEntityId(bogieId, bogie.getEntityId());
                 this.bogies[bogieId] = bogie;
                 NGTLog.debug("[BC]Spawn bogie on Server : %.0f %.0f", bogie.posX, bogie.posZ);//debug
@@ -94,19 +115,13 @@ public final class BogieController {
     public void updateBogies(EntityTrainBase train) {
         this.updateBogie(train, 0);
         this.updateBogie(train, 1);
-        if (this.tickCount >= 100) {
-            this.tickCount = 0;
-        }
-        ++this.tickCount;
     }
 
     private void updateBogie(EntityTrainBase train, int id) {
-        if (train.getEntityWorld().isRemote) {
-            if (this.getBogie(train, id).isDead || (this.tickCount >= 100 && train.getVehicleState(TrainStateType.ChunkLoader) > 0)) {
-                this.setupBogieOnClient(train, id);
-            }
+        EntityBogie bogie = this.getBogie(train, id);
+        if (bogie != null && !bogie.isDead) {
+            bogie.onBogieUpdate();
         }
-        this.getBogie(train, id).onBogieUpdate();
     }
 
     public void setDead(EntityTrainBase train) {
@@ -131,8 +146,14 @@ public final class BogieController {
             this.updateBogiePos(train, 1, UpdateFlag.NONE);
             return MotionState.STOP;
         } else {
-            EntityBogie frontBogie = this.getBogie(prevTrain, true);
-            EntityBogie backBogie = this.getBogie(prevTrain, false);
+            // The moving train owns the bogies being advanced. The previous
+            // train is only the coupling reference and is null for the first
+            // car in a formation.
+            EntityBogie frontBogie = this.getBogie(train, true);
+            EntityBogie backBogie = this.getBogie(train, false);
+            if (frontBogie == null || backBogie == null) {
+                return MotionState.STOP;
+            }
             float[][] bogiePos = train.getResourceState().getResourceSet().getConfig().getBogiePos();
             float lengthF = bogiePos[0][2];
             float lengthB = bogiePos[1][2];
@@ -153,6 +174,9 @@ public final class BogieController {
                 double lenBB = Math.abs(bogiePos[train.getTrainDirection()][2]);
                 float disBogie = (float) (disTrain - lenBF - lenBB);
                 EntityBogie prevBogie = prevTrain.getBogie(1 - prevTrain.getTrainDirection());
+                if (prevBogie == null) {
+                    return MotionState.STOP;
+                }
                 updateFlagFront = frontBogie.updateBogiePos(speed, disBogie, prevBogie);
             }
 

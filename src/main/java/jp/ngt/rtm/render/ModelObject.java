@@ -1,20 +1,19 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.render;
 
 import jp.ngt.ngtlib.io.FileType;
+import jp.ngt.ngtlib.io.NGTLog;
 import jp.ngt.ngtlib.io.NGTText;
 import jp.ngt.ngtlib.io.ResourceLocationCustom;
 import jp.ngt.ngtlib.renderer.GLHelper;
@@ -53,9 +52,12 @@ public class ModelObject {
     private String vshPath, fshPath;
     public boolean useShader;
     private int program;
+    private final String modelFile;
+    private boolean reportedInvalidTexture;
 
     public ModelObject(ModelSource par1, ModelSetBase par2, PartsRenderer par3, Object... args) {
         String s = par1.modelFile;
+        this.modelFile = s;
         this.model = ModelPackManager.INSTANCE.loadModel(s, 4, true, par2.getConfig(), par2.md5);
         boolean objMtlCompatibilityMode = FileType.OBJ.match(s) && !s.equals(s.toLowerCase(java.util.Locale.ROOT));
         Material[] amaterial = this.getMaterials(this.getTextureMap(par1.textures), objMtlCompatibilityMode);
@@ -100,6 +102,7 @@ public class ModelObject {
     }
 
     public ModelObject(IModelNGT par1, TextureSet[] par2) {
+        this.modelFile = "<runtime>";
         this.model = par1;
         this.textures = par2;
         this.light = false;
@@ -109,6 +112,7 @@ public class ModelObject {
     }
 
     public ModelObject(IModelNGT par1, TextureSet[] par2, PartsRenderer<?, ?> par3) {
+        this.modelFile = "<runtime>";
         this.model = par1;
         this.textures = par2;
         this.light = false;
@@ -233,47 +237,87 @@ public class ModelObject {
         }
     }
 
-    public void renderWithTexture(Object entity, RenderPass pass, float partialTick) {
-        for (int i = 0; i < this.textures.length; ++i) {
-            if (this.useTexture) {
-                ResourceLocation texture = null;
-                if (pass == RenderPass.NORMAL) {
-                    texture = this.textures[i].material.texture;
-                } else if (pass == RenderPass.TRANSPARENT) {
-                    if (!this.textures[i].doAlphaBlend) {
-                        continue;
-                    }
-
-                    texture = this.textures[i].material.texture;
-                } else if (pass == RenderPass.LIGHT || pass == RenderPass.LIGHT_FRONT || pass == RenderPass.LIGHT_BACK) {
-                    if (!this.textures[i].doLighting) {
-                        continue;
-                    }
-
-                    if (this.textures[i].subTextures != null) {
-                        texture = this.textures[i].subTextures[pass.id - 2];
-                    } else {
-                        texture = this.textures[i].material.texture;
-                    }
-                } else {
-                    texture = this.textures[i].material.texture;
-                }
-
-                NGTUtilClient.bindTexture(texture);
-
-                if (this.useShader) {
-                    ARBShaderObjects.glUniform1iARB(
-                            ARBShaderObjects.glGetUniformLocationARB(this.program, "texture"), 0);
-
-                    int time = (int) (System.currentTimeMillis() % (24000 * 50));
-                    ARBShaderObjects.glUniform1iARB(
-                            ARBShaderObjects.glGetUniformLocationARB(this.program, "time"), time);
-                }
-            }
-
-            this.renderer.currentMatId = this.textures[i].material.id;
-            this.renderer.render(entity, pass, partialTick);
+    @SideOnly(Side.CLIENT)
+    public void disposeClientResources() {
+        if (this.program > 0) {
+            GLHelper.deleteShaderProgram(this.program);
         }
+        this.program = 0;
+        this.useShader = false;
+    }
+
+    public void renderWithTexture(Object entity, RenderPass pass, float partialTick) {
+        int emissiveProgram = RtmEmissivePass.begin(pass);
+        try {
+            for (int i = 0; i < this.textures.length; ++i) {
+                TextureSet textureSet = this.textures[i];
+                if (textureSet == null || textureSet.material == null) {
+                    this.reportInvalidTexture(i, textureSet, pass);
+                    continue;
+                }
+
+                if (this.useTexture) {
+                    ResourceLocation texture = null;
+                    if (pass == RenderPass.NORMAL) {
+                        texture = textureSet.material.texture;
+                    } else if (pass == RenderPass.TRANSPARENT) {
+                        if (!textureSet.doAlphaBlend) {
+                            continue;
+                        }
+
+                        texture = textureSet.material.texture;
+                    } else if (pass == RenderPass.LIGHT || pass == RenderPass.LIGHT_FRONT || pass == RenderPass.LIGHT_BACK) {
+                        if (!textureSet.doLighting) {
+                            continue;
+                        }
+
+                        if (textureSet.subTextures != null) {
+                            int textureIndex = pass.id - RenderPass.LIGHT.id;
+                            if (textureIndex < 0 || textureIndex >= textureSet.subTextures.length) {
+                                this.reportInvalidTexture(i, textureSet, pass);
+                                continue;
+                            }
+                            texture = textureSet.subTextures[textureIndex];
+                        } else {
+                            texture = textureSet.material.texture;
+                        }
+                    } else {
+                        texture = textureSet.material.texture;
+                    }
+
+                    if (texture == null) {
+                        this.reportInvalidTexture(i, textureSet, pass);
+                        continue;
+                    }
+                    NGTUtilClient.bindTexture(texture);
+
+                    if (this.useShader) {
+                        ARBShaderObjects.glUniform1iARB(
+                                ARBShaderObjects.glGetUniformLocationARB(this.program, "texture"), 0);
+
+                        int time = (int) (System.currentTimeMillis() % (24000 * 50));
+                        ARBShaderObjects.glUniform1iARB(
+                                ARBShaderObjects.glGetUniformLocationARB(this.program, "time"), time);
+                    }
+                }
+
+                this.renderer.currentMatId = textureSet.material.id;
+                this.renderer.render(entity, pass, partialTick);
+            }
+        } finally {
+            RtmEmissivePass.end(emissiveProgram);
+        }
+    }
+
+    private void reportInvalidTexture(int textureIndex, TextureSet textureSet, RenderPass pass) {
+        if (this.reportedInvalidTexture) {
+            return;
+        }
+        this.reportedInvalidTexture = true;
+        String materialId = textureSet == null || textureSet.material == null
+                ? "null" : Byte.toString(textureSet.material.id);
+        NGTLog.debug("[ModelObject] Skipping invalid texture: model=%s slot=%d material=%s pass=%s",
+                this.modelFile, textureIndex, materialId, pass.name());
     }
 
     public Material[] getMaterials(Map<String, String> map, boolean objMtlCompatibilityMode) {

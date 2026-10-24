@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.ngtlib.sound;
@@ -76,7 +74,16 @@ public class MovingSoundCustom extends MovingSound {
     }
 
     public void setSoundRange(float range) {
-        this.soundRangeOverride = range;
+        this.soundRangeOverride = Math.max(1.0F, range);
+        this.attenuationType = AttenuationType.NONE;
+    }
+
+    protected boolean hasSoundRangeOverride() {
+        return this.soundRangeOverride > 0.0F;
+    }
+
+    protected float getSoundRange(float defaultRange) {
+        return this.hasSoundRangeOverride() ? this.soundRangeOverride : defaultRange;
     }
 
     @Override

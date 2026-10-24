@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.ngtlib.renderer;
@@ -137,12 +135,14 @@ public final class NGTRenderHelper {
      */
     public static void addFaceWithMatrix(Face face, IRenderer tessellator, FloatBuffer matrix, int index, boolean smoothing) {
         if (!smoothing) {
-            tessellator.setNormal(face.faceNormal.getX(), face.faceNormal.getY(), face.faceNormal.getZ());
+            setNormalWithMatrix(face.faceNormal.getX(), face.faceNormal.getY(), face.faceNormal.getZ(),
+                    tessellator, matrix, index);
         }
 
         for (int i = 0; i < face.vertices.length; ++i) {
             if (smoothing) {
-                tessellator.setNormal(face.vertexNormals[i].getX(), face.vertexNormals[i].getY(), face.vertexNormals[i].getZ());
+                setNormalWithMatrix(face.vertexNormals[i].getX(), face.vertexNormals[i].getY(),
+                        face.vertexNormals[i].getZ(), tessellator, matrix, index);
             }
 
             boolean hasTexture = (face.textureCoordinates != null) && (face.textureCoordinates.length > 0) && (face.textureCoordinates[0] != null);
@@ -159,6 +159,25 @@ public final class NGTRenderHelper {
                     addVertexWithMatrix(face.vertices[i].getX(), face.vertices[i].getY(), face.vertices[i].getZ(), 0.0F, 0.0F, tessellator, matrix, index);
                 }
             }
+        }
+    }
+
+    private static void setNormalWithMatrix(float x, float y, float z, IRenderer tessellator,
+                                            FloatBuffer matrix, int index) {
+        if (matrix == null) {
+            tessellator.setNormal(x, y, z);
+            return;
+        }
+        int offset = index << 4;
+        float nx = x * matrix.get(offset) + y * matrix.get(offset + 4) + z * matrix.get(offset + 8);
+        float ny = x * matrix.get(offset + 1) + y * matrix.get(offset + 5) + z * matrix.get(offset + 9);
+        float nz = x * matrix.get(offset + 2) + y * matrix.get(offset + 6) + z * matrix.get(offset + 10);
+        float lengthSquared = nx * nx + ny * ny + nz * nz;
+        if (Float.isFinite(lengthSquared) && lengthSquared > 1.0E-12F) {
+            float inverseLength = 1.0F / (float) Math.sqrt(lengthSquared);
+            tessellator.setNormal(nx * inverseLength, ny * inverseLength, nz * inverseLength);
+        } else {
+            tessellator.setNormal(0.0F, 1.0F, 0.0F);
         }
     }
 

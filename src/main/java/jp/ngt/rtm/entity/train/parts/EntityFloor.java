@@ -1,19 +1,18 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.train.parts;
 
+import jp.ngt.ngtlib.math.Vec3;
 import jp.ngt.ngtlib.util.NGTUtil;
 import jp.ngt.rtm.entity.vehicle.EntityVehicleBase;
 import net.minecraft.entity.Entity;
@@ -37,6 +36,7 @@ public class EntityFloor extends EntityVehiclePart {
     private static final DataParameter<Byte> TYPE = EntityDataManager.<Byte>createKey(EntityFloor.class, DataSerializers.BYTE);
 
     private int seatType;
+    private boolean floorTrackerInstalled;
 
     public EntityFloor(World par1) {
         super(par1);
@@ -80,6 +80,9 @@ public class EntityFloor extends EntityVehiclePart {
     @Override
     public void onUpdate() {
         super.onUpdate();
+        if (!this.world.isRemote && !this.floorTrackerInstalled) {
+            this.floorTrackerInstalled = FloorTrackerEntry.ensureTracking(this);
+        }
     }
 
     @Override
@@ -156,6 +159,7 @@ public class EntityFloor extends EntityVehiclePart {
     public void updatePassenger(Entity passenger) {
         super.updatePassenger(passenger);
 
+        if (this.world.isRemote) return;
         if (!this.isPassenger(passenger)) return;
 
         EntityVehicleBase<?> vehicle = this.getVehicle();
@@ -172,4 +176,17 @@ public class EntityFloor extends EntityVehiclePart {
         player.rotationYaw -= yaw;
         player.rotationPitch -= pitch;
     }
+
+    /** Client sync using the parent vehicle's completed pose for this tick. */
+    @SideOnly(Side.CLIENT)
+    public void synchronizeClientPassengerPositions(EntityVehicleBase<?> vehicle) {
+        for (Entity passenger : new java.util.ArrayList<>(this.getPassengers())) {
+            Vec3 local = this.getPartVec().add(
+                    0.0D, this.getMountedYOffset() + passenger.getYOffset(), 0.0D);
+            Vec3 world = vehicle.localToWorld(local);
+            passenger.setPosition(world.getX(), world.getY(), world.getZ());
+            vehicle.updatePassengerView(passenger);
+        }
+    }
+
 }

@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.ngtlib.renderer;
@@ -285,5 +283,20 @@ public final class VertexArray2 extends GLObject implements IRenderer {
         int b1 = (int) (par2 * 127.0F);
         int b2 = (int) (par3 * 127.0F);
         this.normal = b0 & 0xFF | (b1 & 0xFF) << 8 | (b2 & 0xFF) << 16;
+    }
+
+    @Override
+    protected void deleteResource() {
+        this.initialized = false;
+        this.byteBuffer = null;
+        this.intBuffer = null;
+        this.floatBuffer = null;
+        this.shortBuffer = null;
+        this.rawBuf.clear();
+        this.rawBuffer = null;
+        this.rawBufferSize = 0;
+        this.rawBufferIndex = 0;
+        this.vertexCount = 0;
+        this.isDrawing = false;
     }
 }

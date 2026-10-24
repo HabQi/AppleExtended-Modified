@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.modelpack.cfg;
@@ -23,6 +21,12 @@ public class RailConfig extends ModelConfig {
      * モデル
      */
     public ModelSource model;
+
+    /**
+     * Optional client-only rail models selected by distance from the rail core.
+     * Each entry replaces the main model once the viewer reaches {@code distance}.
+     */
+    public LodModel[] lodModels;
 
     /**
      * 道床幅, 1以上の奇数
@@ -53,6 +57,20 @@ public class RailConfig extends ModelConfig {
             this.model.rendererPath = null;
         }
 
+        if (this.lodModels != null) {
+            for (LodModel lodModel : this.lodModels) {
+                if (lodModel == null) {
+                    continue;
+                }
+                if (lodModel.textures == null) {
+                    lodModel.textures = this.model.textures;
+                }
+                if (lodModel.rendererPath == null) {
+                    lodModel.rendererPath = this.model.rendererPath;
+                }
+            }
+        }
+
         if (this.ballastWidth <= 0) {
             this.ballastWidth = 3;
         } else if ((this.ballastWidth & 1) == 0) {
@@ -71,6 +89,26 @@ public class RailConfig extends ModelConfig {
         cfg.railName = "dummy";
         cfg.railModel = "1067mm_Wood";
         return cfg;
+    }
+
+    public ModelSource createLodModelSource(LodModel lodModel) {
+        ModelSource source = new ModelSource();
+        source.modelFile = lodModel.modelFile;
+        source.textures = lodModel.textures;
+        source.rendererPath = lodModel.rendererPath;
+        source.vertexShaderPath = lodModel.vertexShaderPath;
+        source.fragmentShaderPath = lodModel.fragmentShaderPath;
+        return source;
+    }
+
+    public static class LodModel {
+        /** Minimum viewer distance in blocks before this model is used. */
+        public double distance;
+        public String modelFile;
+        public String[][] textures;
+        public String rendererPath;
+        public String vertexShaderPath;
+        public String fragmentShaderPath;
     }
 
     public class BallastSet {

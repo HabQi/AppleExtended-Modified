@@ -218,6 +218,10 @@ key.rtm.ats=ATS确认
 key.rtm.eb=紧急制动
 key.rtm.chime_next=前一个广播
 key.rtm.chime_prev=后一个广播
+key.rtm.pose_sit=车内坐姿
+key.rtm.pose_lie=车内躺姿
+key.rtm.pose_raise=升高躺姿模型
+key.rtm.pose_lower=降低躺姿模型
 
 usage.entity.train=参考物品说明
 usage.entity.vehicle=参考物品说明

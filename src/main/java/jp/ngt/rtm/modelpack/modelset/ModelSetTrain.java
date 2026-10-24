@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.modelpack.modelset;
@@ -21,6 +19,8 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.opengl.GL11;
 
+import java.util.Set;
+
 public class ModelSetTrain extends ModelSetVehicleBase<TrainConfig> {
     @SideOnly(Side.CLIENT)
     public ModelObject[] bogieModels;
@@ -31,6 +31,12 @@ public class ModelSetTrain extends ModelSetVehicleBase<TrainConfig> {
 
     public ModelSetTrain(TrainConfig par1) {
         super(par1);
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Override
+    protected boolean shouldBuildCollisionObj() {
+        return false;
     }
 
     @Override
@@ -58,6 +64,19 @@ public class ModelSetTrain extends ModelSetVehicleBase<TrainConfig> {
             modelBogies[i] = new ModelObject(((TrainConfig) this.getConfig()).getBogieModel(i), this, null, "isBogie");
         }
         return modelBogies;
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Override
+    public void disposeClientResources(Set<ModelObject> disposed) {
+        super.disposeClientResources(disposed);
+        if (this.bogieModels != null) {
+            for (ModelObject bogieModel : this.bogieModels) {
+                if (bogieModel != null && disposed.add(bogieModel)) {
+                    bogieModel.disposeClientResources();
+                }
+            }
+        }
     }
 
     @Override

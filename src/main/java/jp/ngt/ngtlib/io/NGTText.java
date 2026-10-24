@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.ngtlib.io;
@@ -66,7 +64,7 @@ public final class NGTText {
         List<String> list = new ArrayList<>();
         InputStreamReader inputstreamreader;
         if (encoding == null || encoding.isEmpty()) {
-            com.anatawa12.fixRtm.libs.kotlin.Pair<java.nio.charset.Charset, InputStream> pair = com.anatawa12.fixRtm.ngtlib.renderer.model.PolygonModelCharsetDetector.INSTANCE.detectCharset(is, java.nio.charset.Charset.defaultCharset());
+            kotlin.Pair<java.nio.charset.Charset, InputStream> pair = com.anatawa12.fixRtm.ngtlib.renderer.model.PolygonModelCharsetDetector.INSTANCE.detectCharset(is, java.nio.charset.Charset.defaultCharset());
             inputstreamreader = new InputStreamReader(pair.component2(), pair.component1());
         } else {
             try {

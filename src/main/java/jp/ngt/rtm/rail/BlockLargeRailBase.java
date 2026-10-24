@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.rail;
@@ -132,10 +130,21 @@ public class BlockLargeRailBase extends BlockContainerCustomWithMeta {
     }
 
     @Override
+    public float getPlayerRelativeBlockHardness(IBlockState state, EntityPlayer player, World world, BlockPos pos) {
+        if (!isHoldingRailHacksaw(player)) {
+            return 0.0F;
+        }
+        return super.getPlayerRelativeBlockHardness(state, player, world, pos);
+    }
+
+    @Override
     protected boolean removedByPlayer(BlockArgHolder holder, boolean willHarvest) {
         World world = holder.getWorld();
         EntityPlayer player = holder.getPlayer();
         BlockPos pos = holder.getBlockPos();
+        if (!isHoldingRailHacksaw(player)) {
+            return false;
+        }
         if (world.isRemote) {
             return super.removedByPlayer(holder, willHarvest);
         } else {
@@ -149,10 +158,19 @@ public class BlockLargeRailBase extends BlockContainerCustomWithMeta {
                         this.dropRail(world, x, y, z, tile1.getResourceState());
                     }
                 }
-                return super.removedByPlayer(holder, willHarvest);
+                boolean removed = super.removedByPlayer(holder, willHarvest);
+                if (removed) {
+                    player.getHeldItemMainhand().damageItem(1, player);
+                }
+                return removed;
             }
             return false;
         }
+    }
+
+    private static boolean isHoldingRailHacksaw(EntityPlayer player) {
+        ItemStack heldItem = player.getHeldItemMainhand();
+        return !heldItem.isEmpty() && heldItem.getItem() == RTMItem.iron_hacksaw;
     }
 
     protected void dropRail(World world, int x, int y, int z, ResourceStateRail prop) {

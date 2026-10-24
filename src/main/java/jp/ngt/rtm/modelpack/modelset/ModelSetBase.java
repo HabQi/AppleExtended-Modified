@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.modelpack.modelset;
@@ -25,6 +23,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.script.ScriptEngine;
+import java.util.Set;
 
 import jp.apple.script.ScriptLoader;
 
@@ -77,9 +76,15 @@ public abstract class ModelSetBase<T extends ModelConfig> extends ResourceSet<T>
     @SideOnly(Side.CLIENT)
     @Override
     public void finishConstruct() {
-        if (this.modelObj != null) {
+        if (this.modelObj != null && this.shouldBuildCollisionObj()) {
             this.collisionObj = new CollisionObj(this.modelObj.model, this.getConfig());
         }
+    }
+
+    /** Allows resource families to opt out of model collision generation. */
+    @SideOnly(Side.CLIENT)
+    protected boolean shouldBuildCollisionObj() {
+        return true;
     }
 
     @Override
@@ -90,6 +95,13 @@ public abstract class ModelSetBase<T extends ModelConfig> extends ResourceSet<T>
     @SideOnly(Side.CLIENT)
     public void renderModelInGui(Minecraft mc) {
         this.modelObj.render(null, this.getConfig(), 0, 0.0F);
+    }
+
+    @SideOnly(Side.CLIENT)
+    public void disposeClientResources(Set<ModelObject> disposed) {
+        if (this.modelObj != null && disposed.add(this.modelObj)) {
+            this.modelObj.disposeClientResources();
+        }
     }
 
     public void addColFace(String partsName, ColFace face, byte status) {

@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.item;
@@ -18,6 +16,7 @@ import jp.ngt.ngtlib.item.ItemArgHolderBase.ItemArgHolder;
 import jp.ngt.ngtlib.item.ItemCustom;
 import jp.ngt.rtm.RTMBlock;
 import jp.ngt.rtm.RTMItem;
+import jp.ngt.rtm.rail.BlockLargeRailBase;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -62,12 +61,13 @@ public class ItemHacksaw extends ItemCustom {
 
     @Override
     public boolean canDestroyBlockInCreative(World world, BlockPos pos, ItemStack stack, EntityPlayer player) {
-        return false;
+        return world.getBlockState(pos).getBlock() instanceof BlockLargeRailBase;
     }
 
     @Override
     public boolean canHarvestBlock(IBlockState block) {
-        return block.getBlock() == RTMBlock.steelSlab;
+        return block.getBlock() == RTMBlock.steelSlab
+                || block.getBlock() instanceof BlockLargeRailBase;
     }
 
     @Override

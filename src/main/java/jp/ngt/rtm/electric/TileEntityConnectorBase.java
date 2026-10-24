@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.electric;
@@ -23,6 +21,7 @@ import jp.ngt.rtm.modelpack.cfg.ConnectorConfig;
 import jp.ngt.rtm.modelpack.modelset.ModelSetConnector;
 import jp.ngt.rtm.modelpack.modelset.ResourceSet;
 import jp.ngt.rtm.modelpack.state.ResourceState;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraftforge.fml.relauncher.Side;
@@ -124,11 +123,44 @@ public abstract class TileEntityConnectorBase extends TileEntityElectricalWiring
     @Override
     @SideOnly(Side.CLIENT)
     public AxisAlignedBB getRenderBoundingBox() {
-        final int rangeXZ = 32;
-        final int rangeY = 16;
-        AxisAlignedBB bb = new AxisAlignedBB(this.getX() - rangeXZ, this.getY() - rangeY, this.getZ() - rangeXZ,
-                this.getX() + rangeXZ, this.getY() + rangeY, this.getZ() + rangeXZ);
-        return bb;
+        double minX = this.getX();
+        double minY = this.getY();
+        double minZ = this.getZ();
+        double maxX = this.getX() + 1.0D;
+        double maxY = this.getY() + 1.0D;
+        double maxZ = this.getZ() + 1.0D;
+
+        for (Connection connection : this.getConnnectionList()) {
+            if (!connection.isRoot || !connection.type.isVisible) {
+                continue;
+            }
+
+            double endX;
+            double endY;
+            double endZ;
+            if (connection.type == Connection.ConnectionType.TO_PLAYER) {
+                EntityPlayer player = connection.getPlayer(this.getWorld());
+                if (player == null) {
+                    continue;
+                }
+                endX = player.posX;
+                endY = player.posY + player.getEyeHeight();
+                endZ = player.posZ;
+            } else {
+                endX = connection.x + 0.5D;
+                endY = connection.y + 0.5D;
+                endZ = connection.z + 0.5D;
+            }
+
+            minX = Math.min(minX, endX);
+            minY = Math.min(minY, endY);
+            minZ = Math.min(minZ, endZ);
+            maxX = Math.max(maxX, endX);
+            maxY = Math.max(maxY, endY);
+            maxZ = Math.max(maxZ, endZ);
+        }
+
+        return new AxisAlignedBB(minX, minY, minZ, maxX, maxY, maxZ).grow(2.0D);
     }
 
     @Override

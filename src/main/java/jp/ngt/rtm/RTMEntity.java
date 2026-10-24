@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm;
@@ -48,7 +46,8 @@ public final class RTMEntity {
         NGTRegHandler.register(EntityTrainDetector.class, "train_detector", "RTM.E.TrainDetector", getNextId(), 160, FREQ_INSTALLED, false, mod);
         NGTRegHandler.register(EntityBumpingPost.class, "bumping_post", "RTM.E.BumpingPost", getNextId(), 160, FREQ_INSTALLED, false, mod);
 
-        NGTRegHandler.register(EntityFloor.class, "floor", "RTM.E.Floor", getNextId(), RANGE, FREQ_VEHICLE, false, mod);
+        NGTRegHandler.register(EntityFloor.class, "floor", "RTM.E.Floor", getNextId(), RANGE, Integer.MAX_VALUE, false, mod);
+        NGTRegHandler.register(EntityTrainWalkableFloor.class, "walkable_floor", "RTM.E.WalkableFloor", getNextId(), RANGE, Integer.MAX_VALUE, false, mod);
         NGTRegHandler.register(EntityBogie.class, "bogie", "RTM.E.Bogie", getNextId(), RANGE, FREQ_VEHICLE, false, mod);
         NGTRegHandler.register(EntityContainer.class, "container", "RTM.E.Container", getNextId(), 160, FREQ_VEHICLE, false, mod);
         NGTRegHandler.register(EntityArtillery.class, "artillery", "RTM.E.Artillery", getNextId(), 160, FREQ_VEHICLE, false, mod);
@@ -78,6 +77,7 @@ public final class RTMEntity {
         NGTUtilClient.registerEntityRender(WeatherEffectDummy.class, RenderWeatherEffectDummy.class);
         NGTUtilClient.registerEntityRender(EntityBogie.class, RenderBogie.class);
         NGTUtilClient.registerEntityRender(EntityFloor.class, RenderSeat.class);
+        NGTUtilClient.registerEntityRender(EntityTrainWalkableFloor.class, RenderTrainWalkableFloor.class);
         NGTUtilClient.registerEntityRender(EntityATC.class, com.anatawa12.fixRtm.rtm.entity.RenderEntityElectricalWiring.class);
         NGTUtilClient.registerEntityRender(EntityTrainDetector.class, com.anatawa12.fixRtm.rtm.entity.RenderEntityElectricalWiring.class);
         NGTUtilClient.registerEntityRender(EntityBumpingPost.class, RenderEntityInstalledObject.class);

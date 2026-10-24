@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.render;
@@ -21,6 +19,7 @@ import jp.ngt.ngtlib.renderer.model.GroupObject;
 import jp.ngt.ngtlib.renderer.model.TextureCoordinate;
 import jp.ngt.ngtlib.renderer.model.Vertex;
 import jp.ngt.rtm.rail.TileEntityLargeRailCore;
+import jp.ngt.rtm.render.RailResourceBuildQueue;
 import jp.ngt.rtm.rail.util.RailPosition;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fml.relauncher.Side;
@@ -51,12 +50,67 @@ public class RailPartsRenderer2 extends RailPartsRendererBase {
     @Override
     public void renderRail(TileEntityLargeRailCore tileEntity, int index, double par2, double par4, double par6, float par8) {
         this.currentRailIndex = index;
+        boolean hasResource = this.hasValidResource(tileEntity, index);
+        if (!this.isResourceReady(tileEntity, index)) {
+            RailResourceBuildQueue.INSTANCE.enqueueRail(tileEntity, this, index);
+        }
+        if (!hasResource) {
+            return;
+        }
         this.renderRailStatic(tileEntity, par2, par4, par6, par8);
         this.renderRailDynamic(tileEntity, par2, par4, par6, par8);
     }
 
     @Override
+    public boolean buildResource(TileEntityLargeRailCore rail, int index) {
+        if (rail == null || index < 0 || index >= rail.subRails.size() + 1) {
+            return false;
+        }
+        int expectedLength = rail.subRails.size() + 1;
+        if (rail.glLists == null) {
+            rail.glLists = new GLObject[expectedLength];
+        } else if (rail.glLists.length != expectedLength) {
+            GLObject[] oldLists = rail.glLists;
+            rail.glLists = new GLObject[expectedLength];
+            int copyLength = Math.min(oldLists.length, expectedLength);
+            System.arraycopy(oldLists, 0, rail.glLists, 0, copyLength);
+            for (int i = copyLength; i < oldLists.length; ++i) {
+                GLHelper.deleteGLList(oldLists[i]);
+            }
+        }
+        float[][] positions = this.createRailPos(rail);
+        if (positions == null) {
+            return false;
+        }
+        BlockPos pos = rail.getPos();
+        long stageStartedAt = System.nanoTime();
+        int[] brightness = this.getRailBrightness(rail.getWorld(), pos.getX(), pos.getY(), pos.getZ(), positions);
+        RailBuildProfiler.recordStage(RailBuildProfiler.Stage.RAIL_LIGHTING, System.nanoTime() - stageStartedAt);
+        stageStartedAt = System.nanoTime();
+        FloatBuffer matrices = this.createMatrix(positions);
+        RailBuildProfiler.recordStage(RailBuildProfiler.Stage.RAIL_MATRIX, System.nanoTime() - stageStartedAt);
+        stageStartedAt = System.nanoTime();
+        GLObject newObject = this.genVBO(this.genFBuffer(rail, matrices, brightness,
+                this.modelSet.modelObj.model.getGroupObjects()));
+        RailBuildProfiler.recordStage(RailBuildProfiler.Stage.RAIL_COMPILE, System.nanoTime() - stageStartedAt);
+        GLObject oldObject = rail.glLists[index];
+        rail.glLists[index] = newObject;
+        rail.shouldRerenderRail = false;
+        rail.initializeBrightnessBaseline();
+        GLHelper.deleteGLList(oldObject);
+        return true;
+    }
+
+    @Override
     public void renderStaticParts(TileEntityLargeRailCore rail, double par2, double par4, double par6) {
+        if (!this.hasValidResource(rail, this.currentRailIndex)) {
+            RailResourceBuildQueue.INSTANCE.enqueueRail(rail, this, this.currentRailIndex);
+            return;
+        }
+        if (rail.shouldRerenderRail) {
+            this.renderExistingVBO(rail, par2, par4, par6);
+            return;
+        }
         if (rail.glLists == null) {
             rail.glLists = new GLObject[rail.subRails.size() + 1];
         }
@@ -100,6 +154,18 @@ public class RailPartsRenderer2 extends RailPartsRendererBase {
             this.renderVBO(rail.glLists[this.currentRailIndex]);
             GL11.glPopMatrix();
         }
+    }
+
+    private void renderExistingVBO(TileEntityLargeRailCore rail, double par2, double par4, double par6) {
+        RailPosition rp = rail.getRailPositions()[0];
+        double x = rp.posX - (double) rp.blockX;
+        double y = rp.posY - (double) rp.blockY - 0.0625D;
+        double z = rp.posZ - (double) rp.blockZ;
+        GL11.glPushMatrix();
+        GL11.glTranslatef((float) (par2 + x), (float) (par4 + y), (float) (par6 + z));
+        this.bindTexture(this.getModelObject().textures[0].material.texture);
+        this.renderVBO(rail.glLists[this.currentRailIndex]);
+        GL11.glPopMatrix();
     }
 
     private FloatBuffer genFBuffer(TileEntityLargeRailCore tileEntity, FloatBuffer matrix, int[] brightness, List<GroupObject> gObjList) {

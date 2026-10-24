@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.apple.config;
@@ -26,7 +24,7 @@ public class AppleConfig {
 
     public static float runningSoundRange = 16.0F;
     public static float crossingSoundRange = 64.0F;
-    public static float hornSoundRange = 16.0F;
+    public static float hornSoundRange = 256.0F;
 
     public static int notchRepeatInterval = 1;
     public static boolean enableBlockChangeLog = true;
@@ -53,7 +51,7 @@ public class AppleConfig {
             crossingSoundRange = cfg.getFloat("crossingSoundRange", CATEGORY_SOUND_RANGE,
                     64.0F, 1.0F, 1024.0F, "Set the range in which sound can be heard.");
             hornSoundRange = cfg.getFloat("hornSoundRange", CATEGORY_SOUND_RANGE,
-                    16.0F, 1.0F, 1024.0F, "Set the range in which sound can be heard.");
+                    256.0F, 1.0F, 1024.0F, "Set the range in which train horns can be heard.");
 
         } catch (Exception e) {
             e.printStackTrace();

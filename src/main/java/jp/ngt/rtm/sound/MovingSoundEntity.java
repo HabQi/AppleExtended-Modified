@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.sound;
@@ -46,10 +44,12 @@ public class MovingSoundEntity extends MovingSoundCustom {
         this.zPosF = (float) this.entity.posZ;
 
         if (this.baseVolume >= 0.0F) {
-            float adjusted = jp.apple.sound.SoundRangeHelper.calcVolume(
-                    this.baseVolume,
-                    jp.apple.config.AppleConfig.runningSoundRange,
-                    this.xPosF, this.yPosF, this.zPosF);
+            float soundRange = this.getSoundRange(jp.apple.config.AppleConfig.runningSoundRange);
+            float adjusted = this.hasSoundRangeOverride()
+                    ? jp.apple.sound.SoundRangeHelper.calcLinearVolume(
+                    this.baseVolume, soundRange, this.xPosF, this.yPosF, this.zPosF)
+                    : jp.apple.sound.SoundRangeHelper.calcVolume(
+                    this.baseVolume, soundRange, this.xPosF, this.yPosF, this.zPosF);
             this.volume = adjusted;
         }
     }

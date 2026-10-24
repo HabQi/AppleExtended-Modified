@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm;
@@ -44,6 +42,10 @@ public final class RTMPacket {
         registerPacket(PacketMoveMM.class, PacketMoveMM.class, Side.CLIENT);
         registerPacket(PacketCollisionObj.class, PacketCollisionObj.class, Side.SERVER);
         registerPacket(PacketSyncItem.class, PacketSyncItem.class, Side.SERVER);
+        registerPacket(PacketTrainWalkInput.class, PacketTrainWalkInput.class, Side.SERVER);
+        registerPacket(PacketTrainWalkCorrection.class, PacketTrainWalkCorrection.class, Side.CLIENT);
+        registerPacket(PacketPassengerPoseRequest.class, PacketPassengerPoseRequest.class, Side.SERVER);
+        registerPacket(PacketPassengerPoseSync.class, PacketPassengerPoseSync.class, Side.CLIENT);
     }
 
     public static <REQ extends IMessage, REPLY extends IMessage> void registerPacket(Class<? extends IMessageHandler<REQ, REPLY>> messageHandler, Class<REQ> requestMessageType, Side side) {

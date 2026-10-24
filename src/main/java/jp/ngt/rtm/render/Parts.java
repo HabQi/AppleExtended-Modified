@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.render;
@@ -67,10 +65,7 @@ public class Parts {
         } else {
             int i = renderer.currentMatId;
             if (!GLHelper.isValid(this.gLists[i])) {
-                this.gLists[i] = GLHelper.generateGLList(this.gLists[i]);
-                GLHelper.startCompile(this.gLists[i]);
-                NGTRenderHelper.renderCustomModel(model, (byte) i, smoothing, this.objNames);
-                GLHelper.endCompile();
+                this.prepare(renderer);
             } else {
                 if (smoothing) {
                     GL11.glShadeModel(GL11.GL_SMOOTH);
@@ -88,6 +83,28 @@ public class Parts {
                     GL11.glShadeModel(GL11.GL_FLAT);
                 }
             }
+        }
+    }
+
+    /** Builds this part's shared display list without issuing a draw call. */
+    public void prepare(PartsRenderer renderer) {
+        IModelNGT model = renderer.modelObj.model;
+        if (model.getGroupObjects().isEmpty()) {
+            return;
+        }
+
+        int i = renderer.currentMatId;
+        if (GLHelper.isValid(this.gLists[i])) {
+            return;
+        }
+
+        this.gLists[i] = GLHelper.generateGLList(this.gLists[i]);
+        GLHelper.startCompile(this.gLists[i]);
+        try {
+            boolean smoothing = renderer.modelSet.getConfig().smoothing;
+            NGTRenderHelper.renderCustomModel(model, (byte) i, smoothing, this.objNames);
+        } finally {
+            GLHelper.endCompile();
         }
     }
 

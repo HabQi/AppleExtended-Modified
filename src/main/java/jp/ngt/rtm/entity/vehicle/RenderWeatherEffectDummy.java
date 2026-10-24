@@ -1,19 +1,19 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.vehicle;
 
+import jp.ngt.ngtlib.renderer.TESRRenderStats;
+import jp.ngt.rtm.render.VehicleFrustumCulling;
 import net.minecraft.client.renderer.entity.Render;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.util.ResourceLocation;
@@ -45,6 +45,12 @@ public final class RenderWeatherEffectDummy extends Render<WeatherEffectDummy> {
         renderX += (vehicleX - dummyX);
         renderY += (vehicleY - dummyY);
         renderZ += (vehicleZ - dummyZ);
+        VehicleFrustumCulling.BodyRenderDecision decision = VehicleFrustumCulling.evaluateBody(
+                vehicle, partialTick, renderX, renderY, renderZ);
+        TESRRenderStats.recordVehicleBody(decision);
+        if (!decision.isVisible()) {
+            return;
+        }
         this.vehicleRenderer.renderVehicleBase(vehicle, renderX, renderY, renderZ, par8, partialTick);
     }
 

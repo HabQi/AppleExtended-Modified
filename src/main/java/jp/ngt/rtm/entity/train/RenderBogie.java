@@ -1,34 +1,49 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.train;
 
+import com.anatawa12.fixRtm.asm.config.MainConfig;
+import jp.ngt.ngtlib.io.NGTLog;
 import jp.ngt.ngtlib.math.NGTMath;
 import jp.ngt.ngtlib.math.Vec3;
+import jp.ngt.ngtlib.renderer.TESRRenderStats;
 import jp.ngt.rtm.RTMCore;
 import jp.ngt.rtm.modelpack.cfg.VehicleBaseConfig;
 import jp.ngt.rtm.modelpack.modelset.ModelSetTrain;
+import jp.ngt.rtm.render.VehicleTexturePreloader;
+import jp.ngt.rtm.render.VehicleFrustumCulling;
+import net.minecraft.client.renderer.culling.ICamera;
 import net.minecraft.client.renderer.entity.Render;
 import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.entity.Entity;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @SideOnly(Side.CLIENT)
 public final class RenderBogie extends Render<EntityBogie> {
+    private static final long MISSING_LOG_INTERVAL_TICKS = 20L;
+    private static final long ACTIVE_LOG_INTERVAL_TICKS = 100L;
+    private final Map<Integer, Long> missingLogTicks = new HashMap<>();
+    private final Map<Integer, Long> waitingLogTicks = new HashMap<>();
+    private final Map<Integer, Long> activeLogTicks = new HashMap<>();
+
     public RenderBogie(RenderManager renderManager) {
         super(renderManager);
     }
@@ -75,16 +90,24 @@ public final class RenderBogie extends Render<EntityBogie> {
 
         byte index = bogie.getBogieId();
         boolean flag = true;
-        if (bogie.getTrain() != null) {
-            ModelSetTrain modelset = bogie.getTrain().getResourceState().getResourceSet();
+        EntityTrainBase renderTrain = bogie.getTrain();
+        ModelSetTrain modelset = null;
+        if (renderTrain != null) {
+            modelset = renderTrain.getResourceState().getResourceSet();
             if (!modelset.isDummy()) {
-                VehicleBaseConfig cfg = modelset.getConfig();
-                modelset.bogieModels[index].render(bogie, cfg, 0, partialTick);
                 flag = false;
+                if (VehicleTexturePreloader.INSTANCE.ensureReady(modelset)) {
+                    VehicleBaseConfig cfg = modelset.getConfig();
+                    modelset.bogieModels[index].render(bogie, cfg, 0, partialTick);
+                    this.logActiveBogie(bogie, renderTrain);
+                } else {
+                    this.logWaitingBogie(bogie, renderTrain, modelset);
+                }
             }
         }
 
         if (flag) {
+            this.logMissingBogie(bogie, renderTrain, modelset);
             RTMCore.proxy.renderMissingModel();
         }
 
@@ -92,9 +115,109 @@ public final class RenderBogie extends Render<EntityBogie> {
         GL11.glPopMatrix();
     }
 
+    private void logMissingBogie(EntityBogie bogie, EntityTrainBase linkedTrain, ModelSetTrain modelset) {
+        long currentTick = bogie.world.getTotalWorldTime();
+        Long lastLogTick = this.missingLogTicks.get(bogie.getEntityId());
+        if (lastLogTick != null && currentTick >= lastLogTick
+                && currentTick - lastLogTick < MISSING_LOG_INTERVAL_TICKS) {
+            return;
+        }
+        this.missingLogTicks.put(bogie.getEntityId(), currentTick);
+
+        int trainId = bogie.getDataManager().get(EntityBogie.TRAIN_ID);
+        Entity target = bogie.world.getEntityByID(trainId);
+        String targetInfo = target == null
+                ? "null"
+                : target.getClass().getName() + "#" + target.getEntityId() + "(dead=" + target.isDead + ")";
+        String linkedTrainInfo = linkedTrain == null
+                ? "null"
+                : linkedTrain.getClass().getName() + "#" + linkedTrain.getEntityId()
+                + "(dead=" + linkedTrain.isDead + ")";
+        String modelName = linkedTrain == null
+                ? "<no-train>"
+                : linkedTrain.getResourceState().getResourceName();
+        String modelDummy = modelset == null ? "n/a" : Boolean.toString(modelset.isDummy());
+
+        NGTLog.debug(
+                "[BogieRenderMissing] bogie=%d bogieIndex=%d trainId=%d target=%s linkedTrain=%s model=%s dummy=%s pos=(%.2f,%.2f,%.2f)",
+                bogie.getEntityId(), bogie.getBogieId(), trainId, targetInfo, linkedTrainInfo,
+                modelName, modelDummy, bogie.posX, bogie.posY, bogie.posZ);
+    }
+
+    private void logWaitingBogie(EntityBogie bogie, EntityTrainBase linkedTrain, ModelSetTrain modelset) {
+        long currentTick = bogie.world.getTotalWorldTime();
+        Long lastLogTick = this.waitingLogTicks.get(bogie.getEntityId());
+        if (lastLogTick != null && currentTick >= lastLogTick
+                && currentTick - lastLogTick < MISSING_LOG_INTERVAL_TICKS) {
+            return;
+        }
+        this.waitingLogTicks.put(bogie.getEntityId(), currentTick);
+
+        NGTLog.debug(
+                "[BogieRenderWaiting] bogie=%d bogieIndex=%d train=%d model=%s bogiePos=(%.2f,%.2f,%.2f) trainPos=(%.2f,%.2f,%.2f)",
+                bogie.getEntityId(), bogie.getBogieId(), linkedTrain.getEntityId(),
+                linkedTrain.getResourceState().getResourceName(), bogie.posX, bogie.posY, bogie.posZ,
+                linkedTrain.posX, linkedTrain.posY, linkedTrain.posZ);
+    }
+
+    private void logActiveBogie(EntityBogie bogie, EntityTrainBase linkedTrain) {
+        long currentTick = bogie.world.getTotalWorldTime();
+        Long lastLogTick = this.activeLogTicks.get(bogie.getEntityId());
+        if (lastLogTick != null && currentTick >= lastLogTick
+                && currentTick - lastLogTick < ACTIVE_LOG_INTERVAL_TICKS) {
+            return;
+        }
+        this.activeLogTicks.put(bogie.getEntityId(), currentTick);
+
+        NGTLog.debug(
+                "[BogieRenderActive] bogie=%d bogieIndex=%d train=%d model=%s bogiePos=(%.2f,%.2f,%.2f) trainPos=(%.2f,%.2f,%.2f) distance=%.2f",
+                bogie.getEntityId(), bogie.getBogieId(), linkedTrain.getEntityId(),
+                linkedTrain.getResourceState().getResourceName(), bogie.posX, bogie.posY, bogie.posZ,
+                linkedTrain.posX, linkedTrain.posY, linkedTrain.posZ,
+                Math.sqrt(bogie.getDistanceSq(linkedTrain)));
+    }
+
     @Override
     public void doRender(EntityBogie par1, double par2, double par4, double par6, float par8, float par9) {
+        if (!par1.isCurrentClientInstance()) {
+            return;
+        }
         this.renderBogie(par1, par2, par4, par6, par8, par9);
+    }
+
+    @Override
+    public boolean shouldRender(EntityBogie bogie, ICamera camera, double camX, double camY, double camZ) {
+        if (!bogie.isCurrentClientInstance()) {
+            TESRRenderStats.recordBogie(false, true);
+            return false;
+        }
+
+        boolean visible;
+        if (!MainConfig.vehicleFrustumCulling) {
+            visible = bogie.isInRangeToRender3d(camX, camY, camZ);
+        } else {
+            EntityTrainBase train = bogie.getTrain();
+            if (train != null && VehicleFrustumCulling.isPlayerRidingVehicle(train)) {
+                visible = true;
+            } else {
+                AxisAlignedBB bounds = bogie.getEntityBoundingBox();
+                if (camera == null || !isUsable(bounds)) {
+                    visible = true;
+                } else {
+                    visible = bogie.isInRangeToRender3d(camX, camY, camZ)
+                            && camera.isBoundingBoxInFrustum(bounds.grow(0.75D, 0.75D, 0.75D));
+                }
+            }
+        }
+        TESRRenderStats.recordBogie(visible, !visible);
+        return visible;
+    }
+
+    private static boolean isUsable(AxisAlignedBB bounds) {
+        return bounds != null && !bounds.hasNaN()
+                && !Double.isInfinite(bounds.minX) && !Double.isInfinite(bounds.minY)
+                && !Double.isInfinite(bounds.minZ) && !Double.isInfinite(bounds.maxX)
+                && !Double.isInfinite(bounds.maxY) && !Double.isInfinite(bounds.maxZ);
     }
 
     @Override

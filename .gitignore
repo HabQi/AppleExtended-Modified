@@ -35,3 +35,7 @@ libs/
 /src/main/resources/kotlinx/
 /src/main/resources/org/
 /src/main/resources/assets/fix-rtm/
+
+# Preserve imported fixRTM source assets
+!/src/main/resources/assets/fix-rtm/
+!/src/main/resources/assets/fix-rtm/**

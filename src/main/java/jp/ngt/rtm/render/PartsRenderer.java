@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.render;
@@ -52,6 +50,7 @@ public abstract class PartsRenderer<T, MS extends ModelSetBase> {
     protected MS modelSet;
     protected ModelObject modelObj;
     private ScriptEngine script;
+    private ResourceLocation scriptResource;
     protected List<Parts> partsList = new ArrayList<Parts>();
     protected List<ActionParts> targetsList = new ArrayList<ActionParts>();
     protected Map<Integer, Object> dataMap = new HashMap<Integer, Object>();
@@ -68,10 +67,15 @@ public abstract class PartsRenderer<T, MS extends ModelSetBase> {
 
     public void setScript(ScriptEngine se, ResourceLocation rl) {
         this.script = se;
+        this.scriptResource = rl;
     }
 
     public ScriptEngine getScript() {
         return this.script;
+    }
+
+    public ResourceLocation getScriptResource() {
+        return this.scriptResource;
     }
 
     private void execScriptFunc(String func, Object... args) {

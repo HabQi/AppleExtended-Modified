@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.modelpack.init;
@@ -131,7 +129,7 @@ public final class ModelPackLoadThread extends Thread {
                 crashreport = NGTUtilClient.getMinecraft().addGraphicsAndWorldToCrashReport(crashreport);
                 NGTUtilClient.getMinecraft().displayCrashReport(crashreport);
             } else {
-                com.anatawa12.fixRtm.FixRtm.INSTANCE.reportCrash$fixRtm(crashreport);
+                com.anatawa12.fixRtm.FixRtm.reportCrash(crashreport);
             }
         } finally {
             if (this.displayWindow && !this.debug) {

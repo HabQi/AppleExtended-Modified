@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.train.parts;
@@ -230,14 +228,22 @@ public abstract class EntityVehiclePart extends EntityCustom {
     }
 
     public EntityVehicleBase getVehicle() {
-        if (this.parent == null) {
-            int id = this.getDataManager().get(TRAIN_ID);
+        int id = this.getDataManager().get(TRAIN_ID);
+        if (this.parent == null || this.parent.isDead || this.parent.world != this.world
+                || this.parent.getEntityId() != id) {
             Entity entity = this.world.getEntityByID(id);
-            if (entity instanceof EntityVehicleBase) {
+            if (entity instanceof EntityVehicleBase && !entity.isDead) {
                 this.parent = (EntityVehicleBase) entity;
+            } else {
+                this.parent = null;
             }
         }
         return this.parent;
+    }
+
+    /** Read-only parent accessor for client camera and passenger synchronization. */
+    public EntityVehicleBase getParentVehicle() {
+        return this.getVehicle();
     }
 
     public void setPartPos(float x, float y, float z) {

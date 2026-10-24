@@ -1,15 +1,13 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.modelpack.modelset;
@@ -19,6 +17,7 @@ import jp.ngt.rtm.modelpack.cfg.VehicleBaseConfig;
 import jp.ngt.rtm.render.BasicVehiclePartsRenderer;
 import jp.ngt.rtm.render.ModelObject;
 import jp.ngt.rtm.render.PartsRenderer;
+import jp.ngt.rtm.render.VehicleTexturePreloader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
@@ -77,6 +76,9 @@ public abstract class ModelSetVehicleBase<T extends VehicleBaseConfig> extends M
     @SideOnly(Side.CLIENT)
     @Override
     public void renderModelInGui(Minecraft par1) {
+        if (!VehicleTexturePreloader.INSTANCE.ensureReady(this)) {
+            return;
+        }
         VehicleBaseConfig cfg = (VehicleBaseConfig) this.cfg;
         this.modelObj.render(null, cfg, 0, 0.0F);
         this.modelObj.render(null, cfg, 1, 0.0F);

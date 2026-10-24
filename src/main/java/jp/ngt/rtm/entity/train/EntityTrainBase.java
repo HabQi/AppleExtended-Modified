@@ -1,19 +1,18 @@
 /*
+ * AppleExtended
  *
- *  * AppleExtended
- *  *
- *  * Original code (c) 2020 anatawa12 and other contributors.
- *  * Modifications (c) 2026 Applepie.
- *  *
- *  * This file is part of AppleExtended, which is a derivative work of fixRTM.
- *  * Both are licensed under the GNU Lesser General Public License version 3.
- *  * See LICENSE.txt in the mod root for full license text.
+ * Original code (c) 2020 anatawa12 and other contributors.
+ * Modifications (c) 2026 Applepie.
+ * Further modifications (2026): HabQi.
  *
- *
+ * This file is part of AppleExtended, which is a derivative work of fixRTM.
+ * Both are licensed under the GNU Lesser General Public License version 3.
+ * See LICENSE.md in the project root for license details.
  */
 
 package jp.ngt.rtm.entity.train;
 
+import io.netty.buffer.ByteBuf;
 import jp.ngt.ngtlib.io.NGTLog;
 import jp.ngt.ngtlib.math.NGTMath;
 import jp.ngt.ngtlib.math.PooledVec3;
@@ -25,11 +24,13 @@ import jp.ngt.rtm.*;
 import jp.ngt.rtm.electric.WireManager;
 import jp.ngt.rtm.entity.npc.EntityMotorman;
 import jp.ngt.rtm.entity.npc.macro.MacroRecorder;
+import jp.ngt.rtm.entity.train.parts.EntityTrainWalkableFloor;
 import jp.ngt.rtm.entity.train.util.*;
 import jp.ngt.rtm.entity.train.util.BogieController.MotionState;
 import jp.ngt.rtm.entity.train.util.BogieController.UpdateFlag;
 import jp.ngt.rtm.entity.train.util.TrainState.TrainStateType;
 import jp.ngt.rtm.entity.vehicle.EntityVehicleBase;
+import jp.ngt.rtm.item.ItemTicket;
 import jp.ngt.rtm.item.ItemTrain;
 import jp.ngt.rtm.modelpack.cfg.TrainConfig;
 import jp.ngt.rtm.modelpack.modelset.ModelSetTrain;
@@ -59,11 +60,15 @@ import net.minecraftforge.common.ForgeChunkManager.Ticket;
 import net.minecraftforge.common.ForgeChunkManager.Type;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.fml.common.registry.IEntityAdditionalSpawnData;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
 
+import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 
-public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> implements IChunkLoader {
+public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain>
+        implements IChunkLoader, IEntityAdditionalSpawnData {
     private static final DataParameter<Integer> BOGIE_ID0 = EntityDataManager.<Integer>createKey(EntityTrainBase.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> BOGIE_ID1 = EntityDataManager.<Integer>createKey(EntityTrainBase.class, DataSerializers.VARINT);
     private static final DataParameter<Float> TRAIN_SPEED = EntityDataManager.createKey(EntityTrainBase.class, DataSerializers.FLOAT);
@@ -99,6 +104,20 @@ public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> i
     public void spawnTrain(World world) {
         world.spawnEntity(this);
         this.formation = FormationManager.getInstance().createNewFormation(this);
+    }
+
+    @Override
+    public void writeSpawnData(ByteBuf buffer) {
+        ByteBufUtils.writeTag(buffer, this.getResourceState().writeToNBT());
+    }
+
+    @Override
+    public void readSpawnData(ByteBuf additionalData) {
+        NBTTagCompound stateData = ByteBufUtils.readTag(additionalData);
+        if (stateData != null) {
+            this.getResourceState().readFromNBT(stateData);
+            this.updateResourceState();
+        }
     }
 
     @Override
@@ -227,13 +246,13 @@ public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> i
 
         this.updateSpeed();
 
+        this.logBogieLinkAnomaly();
+
         if (this.existBogies()) {
             this.bogieController.updateBogies(this);
         }
 
         super.onVehicleUpdate();
-
-        jp.apple.train.TrainPlatformHandler.updateStandingEntities(this);
 
         if (this.world.isRemote) {
             this.spawnSmoke();
@@ -241,6 +260,52 @@ public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> i
             this.updateChunks();
             this.updateATS();
         }
+    }
+
+    private void logBogieLinkAnomaly() {
+        if (!this.world.isRemote || this.ticksExisted < 20 || this.ticksExisted % 20 != 0) {
+            return;
+        }
+
+        int bogieId0 = this.getBogieEntityId(0);
+        int bogieId1 = this.getBogieEntityId(1);
+        Entity entity0 = this.world.getEntityByID(bogieId0);
+        Entity entity1 = this.world.getEntityByID(bogieId1);
+        if (this.isValidLinkedBogie(entity0, 0) && this.isValidLinkedBogie(entity1, 1)) {
+            return;
+        }
+
+        NGTLog.debug(
+                "[TrainBogieLinkMissing] train=%d model=%s bogieIds=(%d,%d) bogie0=%s bogie1=%s trainPos=(%.2f,%.2f,%.2f)",
+                this.getEntityId(), this.getResourceState().getResourceName(), bogieId0, bogieId1,
+                this.getBogieLinkInfo(entity0), this.getBogieLinkInfo(entity1),
+                this.posX, this.posY, this.posZ);
+    }
+
+    private boolean isValidLinkedBogie(Entity entity, int expectedIndex) {
+        if (!(entity instanceof EntityBogie) || entity.isDead) {
+            return false;
+        }
+        EntityBogie bogie = (EntityBogie) entity;
+        int linkedTrainId = bogie.getDataManager().get(EntityBogie.TRAIN_ID);
+        return bogie.getBogieId() == expectedIndex
+                && linkedTrainId == this.getEntityId()
+                && this.getDistanceSq(bogie) <= 4096.0D;
+    }
+
+    private String getBogieLinkInfo(Entity entity) {
+        if (entity == null) {
+            return "null";
+        }
+        if (!(entity instanceof EntityBogie)) {
+            return entity.getClass().getName() + "#" + entity.getEntityId() + "(dead=" + entity.isDead + ")";
+        }
+        EntityBogie bogie = (EntityBogie) entity;
+        int linkedTrainId = bogie.getDataManager().get(EntityBogie.TRAIN_ID);
+        return String.format(Locale.ROOT,
+                "%s#%d(dead=%s,index=%d,trainId=%d,pos=(%.2f,%.2f,%.2f),distance=%.2f)",
+                bogie.getClass().getName(), bogie.getEntityId(), bogie.isDead, bogie.getBogieId(), linkedTrainId,
+                bogie.posX, bogie.posY, bogie.posZ, Math.sqrt(this.getDistanceSq(bogie)));
     }
 
     @Override
@@ -708,6 +773,27 @@ public abstract class EntityTrainBase extends EntityVehicleBase<ModelSetTrain> i
                 NGTLog.sendChatMessage(player, "UUID:" + this.getUniqueID().toString() + "(train)");
             }
             return true;
+        }
+
+        if (hand == EnumHand.MAIN_HAND && ItemTicket.isBoardingTicket(player.getHeldItem(hand))
+                && !player.isRiding()) {
+            EntityTrainWalkableFloor floor = this.getWalkableFloor();
+            if (floor != null) {
+                if (!this.world.isRemote) {
+                    boolean mounted = player.startRiding(floor);
+                    NGTLog.debug("[WalkableFloor] mount player=%s train=%d floor=%d success=%s",
+                            player.getName(), this.getEntityId(), floor.getEntityId(), mounted);
+                }
+                return true;
+            }
+            // The client may receive the train one tick before the hidden
+            // carrier entity. Accept the interaction so the server can lazily
+            // create and mount the carrier.
+            if (this.world.isRemote && this.getResourceState().getResourceSet() != null
+                    && this.getResourceState().getResourceSet().getConfig().walkable != null
+                    && this.getResourceState().getResourceSet().getConfig().walkable.isValid()) {
+                return true;
+            }
         }
         return false;
     }
